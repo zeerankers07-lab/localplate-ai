@@ -1,6 +1,6 @@
 export default function Home() {
   return (
-    <main className="min-h-screen overflow-hidden bg-[#fffaf5] text-zinc-900">
+    <main className="min-h-screen bg-[#fffaf5] text-zinc-900">
 
       {/* =========================================================
           HERO
@@ -13,7 +13,7 @@ export default function Home() {
 
         <div className="pointer-events-none absolute right-0 top-0 -z-10 h-[30rem] w-[30rem] rounded-full bg-amber-100/40 blur-3xl" />
 
-        <div className="mx-auto grid max-w-7xl items-center gap-14 px-6 pb-20 pt-16 md:px-12 md:pb-28 md:pt-24 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="mx-auto grid min-w-0 max-w-7xl items-center gap-14 px-6 pb-20 pt-16 md:px-12 md:pb-28 md:pt-24 lg:grid-cols-[0.95fr_1.05fr]">
 
           {/* LEFT */}
 
@@ -84,7 +84,7 @@ export default function Home() {
               HERO PRODUCT PREVIEW
           ====================================================== */}
 
-          <div className="relative">
+          <div className="relative min-w-0 w-full">
 
             {/* Floating notification */}
 
@@ -108,31 +108,31 @@ export default function Home() {
 
             {/* Main dashboard */}
 
-            <div className="relative rounded-[2rem] border border-zinc-200 bg-white p-4 shadow-2xl shadow-orange-100 md:p-6">
+            <div className="relative box-border w-full min-w-0 max-w-full rounded-[2rem] border border-zinc-200 bg-white p-4 shadow-2xl shadow-orange-100 md:p-6">
 
               {/* Dashboard header */}
 
-              <div className="flex items-center justify-between border-b border-zinc-100 pb-5">
+              <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zinc-100 pb-5">
 
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
 
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-100 text-xl">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-100 text-xl">
                     🍽️
                   </div>
 
-                  <div>
-                    <p className="font-bold">
+                  <div className="min-w-0">
+                    <p className="truncate font-bold">
                       Your Meal Dashboard
                     </p>
 
-                    <p className="text-xs text-zinc-400">
+                    <p className="truncate text-xs text-zinc-400">
                       Personalized by LocalPlate AI
                     </p>
                   </div>
 
                 </div>
 
-                <div className="rounded-full bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700">
+                <div className="shrink-0 rounded-full bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700">
                   ● AI Ready
                 </div>
 
@@ -140,58 +140,58 @@ export default function Home() {
 
               {/* Profile */}
 
-              <div className="mt-5 rounded-2xl bg-zinc-950 p-5 text-white">
+              <div className="mt-5 min-w-0 rounded-2xl bg-zinc-950 p-5 text-white">
 
-                <div className="flex items-start justify-between gap-5">
+                <div className="flex min-w-0 items-start justify-between gap-5">
 
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold uppercase tracking-wider text-orange-400">
                       Today&apos;s plan
                     </p>
 
-                    <h2 className="mt-2 text-2xl font-bold">
+                    <h2 className="mt-2 break-words text-2xl font-bold">
                       Balanced Pakistani Meals
                     </h2>
 
-                    <p className="mt-2 text-sm text-zinc-400">
+                    <p className="mt-2 break-words text-sm text-zinc-400">
                       Designed around your budget and preferences.
                     </p>
                   </div>
 
-                  <div className="hidden text-4xl sm:block">
+                  <div className="hidden shrink-0 text-4xl sm:block">
                     🥘
                   </div>
 
                 </div>
 
-                <div className="mt-5 grid grid-cols-3 gap-2">
+                <div className="mt-5 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3">
 
-                  <div className="rounded-xl bg-white/10 p-3">
+                  <div className="min-w-0 rounded-xl bg-white/10 p-3">
                     <p className="text-[10px] uppercase text-zinc-500">
                       Budget
                     </p>
 
-                    <p className="mt-1 text-sm font-bold">
+                    <p className="mt-1 truncate text-sm font-bold">
                       Rs. 7,000
                     </p>
                   </div>
 
-                  <div className="rounded-xl bg-white/10 p-3">
+                  <div className="min-w-0 rounded-xl bg-white/10 p-3">
                     <p className="text-[10px] uppercase text-zinc-500">
                       Servings
                     </p>
 
-                    <p className="mt-1 text-sm font-bold">
+                    <p className="mt-1 truncate text-sm font-bold">
                       2 People
                     </p>
                   </div>
 
-                  <div className="rounded-xl bg-white/10 p-3">
+                  <div className="min-w-0 rounded-xl bg-white/10 p-3">
                     <p className="text-[10px] uppercase text-zinc-500">
                       Goal
                     </p>
 
-                    <p className="mt-1 text-sm font-bold">
+                    <p className="mt-1 truncate text-sm font-bold">
                       Healthy
                     </p>
                   </div>
@@ -201,14 +201,14 @@ export default function Home() {
 
               {/* Meals */}
 
-              <div className="mt-5">
+              <div className="mt-5 min-w-0">
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <h3 className="font-bold">
                     Today&apos;s meals
                   </h3>
 
-                  <span className="text-xs font-semibold text-orange-600">
+                  <span className="shrink-0 text-xs font-semibold text-orange-600">
                     3 meals
                   </span>
                 </div>
@@ -217,7 +217,7 @@ export default function Home() {
 
                   {/* Breakfast */}
 
-                  <div className="flex items-center gap-4 rounded-2xl border border-zinc-100 bg-[#fffaf5] p-4">
+                  <div className="flex min-w-0 items-center gap-4 rounded-2xl border border-zinc-100 bg-[#fffaf5] p-4">
 
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-2xl">
                       🍳
@@ -233,7 +233,7 @@ export default function Home() {
                       </p>
                     </div>
 
-                    <div className="text-right">
+                    <div className="shrink-0 text-right">
                       <p className="text-xs text-zinc-400">
                         Cost
                       </p>
@@ -247,7 +247,7 @@ export default function Home() {
 
                   {/* Lunch */}
 
-                  <div className="flex items-center gap-4 rounded-2xl border border-zinc-100 bg-[#fffaf5] p-4">
+                  <div className="flex min-w-0 items-center gap-4 rounded-2xl border border-zinc-100 bg-[#fffaf5] p-4">
 
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-green-100 text-2xl">
                       🍛
@@ -263,7 +263,7 @@ export default function Home() {
                       </p>
                     </div>
 
-                    <div className="text-right">
+                    <div className="shrink-0 text-right">
                       <p className="text-xs text-zinc-400">
                         Cost
                       </p>
@@ -277,7 +277,7 @@ export default function Home() {
 
                   {/* Dinner */}
 
-                  <div className="flex items-center gap-4 rounded-2xl border border-zinc-100 bg-[#fffaf5] p-4">
+                  <div className="flex min-w-0 items-center gap-4 rounded-2xl border border-zinc-100 bg-[#fffaf5] p-4">
 
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-2xl">
                       🍚
@@ -293,7 +293,7 @@ export default function Home() {
                       </p>
                     </div>
 
-                    <div className="text-right">
+                    <div className="shrink-0 text-right">
                       <p className="text-xs text-zinc-400">
                         Cost
                       </p>
@@ -310,9 +310,9 @@ export default function Home() {
 
               {/* Budget */}
 
-              <div className="mt-5 rounded-2xl border border-zinc-100 bg-zinc-50 p-4">
+              <div className="mt-5 min-w-0 rounded-2xl border border-zinc-100 bg-zinc-50 p-4">
 
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                   <span className="font-semibold">
                     Weekly budget
                   </span>
@@ -326,7 +326,7 @@ export default function Home() {
                   <div className="h-full w-[78%] rounded-full bg-orange-600" />
                 </div>
 
-                <div className="mt-2 flex justify-between text-xs text-zinc-400">
+                <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-zinc-400">
                   <span>Used 78%</span>
                   <span>Rs. 1,540 remaining</span>
                 </div>
@@ -904,21 +904,21 @@ export default function Home() {
 
             {/* Week cards */}
 
-            <div className="rounded-[2rem] border border-orange-100 bg-white p-5 shadow-xl shadow-orange-100 md:p-7">
+            <div className="min-w-0 rounded-[2rem] border border-orange-100 bg-white p-5 shadow-xl shadow-orange-100 md:p-7">
 
-              <div className="flex items-center justify-between border-b border-zinc-100 pb-5">
+              <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zinc-100 pb-5">
 
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-wider text-orange-600">
                     Weekly plan
                   </p>
 
-                  <h3 className="mt-1 text-xl font-bold">
+                  <h3 className="mt-1 truncate text-xl font-bold">
                     This week&apos;s meals
                   </h3>
                 </div>
 
-                <span className="rounded-full bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700">
+                <span className="shrink-0 rounded-full bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700">
                   Budget OK
                 </span>
 
@@ -936,7 +936,7 @@ export default function Home() {
                 ].map(([day, lunch, dinner]) => (
                   <div
                     key={day}
-                    className="rounded-2xl border border-zinc-100 p-4"
+                    className="min-w-0 rounded-2xl border border-zinc-100 p-4"
                   >
 
                     <div className="flex items-center justify-between">
@@ -949,11 +949,11 @@ export default function Home() {
                       </span>
                     </div>
 
-                    <p className="mt-3 text-sm text-zinc-600">
+                    <p className="mt-3 truncate text-sm text-zinc-600">
                       {lunch}
                     </p>
 
-                    <p className="mt-2 text-sm font-semibold text-zinc-800">
+                    <p className="mt-2 truncate text-sm font-semibold text-zinc-800">
                       {dinner}
                     </p>
 
@@ -962,7 +962,7 @@ export default function Home() {
 
               </div>
 
-              <div className="mt-5 flex items-center justify-between rounded-2xl bg-zinc-50 p-4">
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-zinc-50 p-4">
 
                 <div>
                   <p className="text-xs text-zinc-400">
