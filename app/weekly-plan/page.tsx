@@ -2849,9 +2849,15 @@ Do not return an explanation before the weekly plan.
                   <button
                     type="button"
                     onClick={sendToShoppingList}
-                    className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-700"
+                    className="group inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-emerald-200 bg-white px-5 py-3.5 text-sm font-bold text-emerald-700 shadow-sm shadow-emerald-900/5 transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 hover:shadow-md hover:shadow-emerald-900/10 active:translate-y-0 sm:w-auto"
                   >
-                    Open Shopping List →
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 text-base transition-all duration-300 group-hover:bg-emerald-600 group-hover:text-white">
+                      🛒
+                    </span>
+                    <span>Open Shopping List</span>
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-lg leading-none transition-all duration-300 group-hover:translate-x-1 group-hover:bg-emerald-600 group-hover:text-white">
+                      →
+                    </span>
                   </button>
                 </div>
 

@@ -840,29 +840,6 @@ export default function ShoppingListPage() {
         setEditingPrice("");
     };
 
-    const clearShoppingList = () => {
-        const confirmed = window.confirm(
-            "Kya aap poori shopping list clear karna chahte hain?"
-        );
-
-        if (!confirmed) return;
-
-        setShoppingList("");
-        setCheckedItems([]);
-        setFavoriteItems([]);
-        setCustomItems([]);
-        setManualPrices({});
-        setSearchTerm("");
-        setFilterMode("all");
-        setCategoryFilter("All");
-
-        localStorage.removeItem("localplate_shopping_list");
-        localStorage.removeItem("localplate_checked_items");
-        localStorage.removeItem("localplate_favorite_items");
-        localStorage.removeItem("localplate_custom_items");
-        localStorage.removeItem("localplate_manual_prices");
-    };
-
     const buildShareText = (remainingOnly = false) => {
         const source = remainingOnly
             ? ingredientItems.filter(
@@ -962,30 +939,39 @@ export default function ShoppingListPage() {
     return (
         <main className="min-h-screen bg-[#fffaf5] px-4 py-8 text-zinc-900 md:px-8 md:py-10">
             <div className="mx-auto max-w-7xl">
-                <nav className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <a
-                        href="/planner"
-                        className="inline-flex w-fit items-center gap-2 rounded-2xl border border-orange-200 bg-white px-4 py-3 text-sm font-bold text-orange-600 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-50 hover:shadow-md active:translate-y-0"
-                    >
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-50 text-base">
-                            ←
-                        </span>
-                        Back to Planner
-                    </a>
+                <nav className="mb-6 w-full sm:mb-8">
+                    <div className="grid w-full grid-cols-2 gap-2.5 sm:flex sm:items-center sm:justify-between sm:gap-3">
+                        <a
+                            href="/planner"
+                            className="group col-span-2 inline-flex min-h-12 items-center justify-center gap-2.5 rounded-2xl border border-orange-200 bg-white px-4 py-3 text-sm font-bold text-orange-700 shadow-sm shadow-orange-100/60 transition-all duration-200 hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-50 hover:shadow-md active:translate-y-0 sm:col-span-1 sm:w-auto sm:justify-start"
+                        >
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-50 text-lg transition-transform duration-200 group-hover:-translate-x-0.5">
+                                ←
+                            </span>
+                            <span>Back to Planner</span>
+                        </a>
 
-                    <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
-                        <a
-                            href="/weekly-plan"
-                            className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-indigo-200 bg-white px-3.5 py-3 text-sm font-bold text-indigo-600 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-indigo-50 hover:shadow-md sm:flex-none"
-                        >
-                            📅 Weekly Plan
-                        </a>
-                        <a
-                            href="/saved-plans"
-                            className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3.5 py-3 text-sm font-bold text-zinc-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-orange-300 hover:text-orange-600 hover:shadow-md sm:flex-none"
-                        >
-                            💾 Saved Plans
-                        </a>
+                        <div className="col-span-2 grid grid-cols-2 gap-2.5 sm:flex sm:w-auto sm:gap-2.5">
+                            <a
+                                href="/weekly-plan"
+                                className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-indigo-200 bg-white px-3 py-3 text-sm font-bold text-indigo-700 shadow-sm shadow-indigo-100/50 transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:shadow-md active:translate-y-0 sm:px-4"
+                            >
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-sm transition-transform duration-200 group-hover:scale-105">
+                                    📅
+                                </span>
+                                <span className="truncate">Weekly Plan</span>
+                            </a>
+
+                            <a
+                                href="/saved-plans"
+                                className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-3 text-sm font-bold text-zinc-800 shadow-sm shadow-zinc-100/70 transition-all duration-200 hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 hover:shadow-md active:translate-y-0 sm:px-4"
+                            >
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-sm transition-colors duration-200 group-hover:bg-orange-100">
+                                    💾
+                                </span>
+                                <span className="truncate">Saved Plans</span>
+                            </a>
+                        </div>
                     </div>
                 </nav>
 
@@ -1085,233 +1071,54 @@ export default function ShoppingListPage() {
                 </section>
 
                 {totalItems > 0 && (
-                    <section className="mt-5 rounded-3xl border border-zinc-100 bg-white p-5 shadow-sm">
-                        <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-                            <div className="relative">
-                                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
-                                    🔎
-                                </span>
-                                <input
-                                    value={searchTerm}
-                                    onChange={(event) =>
-                                        setSearchTerm(
-                                            event.target.value
-                                        )
-                                    }
-                                    placeholder="Search ingredients..."
-                                    className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 py-3.5 pl-11 pr-4 text-sm outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-100"
-                                />
-                            </div>
-
-                            <div className="flex flex-wrap gap-2">
-                                {(
-                                    [
-                                        ["all", "All"],
-                                        ["remaining", "Remaining"],
-                                        ["purchased", "Purchased"],
-                                    ] as const
-                                ).map(([mode, label]) => (
-                                    <button
-                                        key={mode}
-                                        type="button"
-                                        onClick={() =>
-                                            setFilterMode(mode)
-                                        }
-                                        className={`rounded-full px-4 py-2.5 text-sm font-semibold transition ${
-                                            filterMode === mode
-                                                ? "bg-zinc-900 text-white"
-                                                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-                                        }`}
-                                    >
-                                        {label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap gap-2">
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setCategoryFilter("All")
-                                }
-                                className={`rounded-full px-3.5 py-2 text-xs font-bold ${
-                                    categoryFilter === "All"
-                                        ? "bg-orange-600 text-white"
-                                        : "bg-orange-50 text-orange-700"
-                                }`}
-                            >
-                                All categories
-                            </button>
-
-                            {CATEGORY_ORDER.map((category) => (
-                                <button
-                                    key={category}
-                                    type="button"
-                                    onClick={() =>
-                                        setCategoryFilter(category)
-                                    }
-                                    className={`rounded-full px-3.5 py-2 text-xs font-bold transition ${
-                                        categoryFilter === category
-                                            ? "bg-zinc-900 text-white"
-                                            : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-                                    }`}
-                                >
-                                    {CATEGORY_ICONS[category]}{" "}
-                                    {category}
-                                </button>
-                            ))}
-                        </div>
-
-                        {(searchTerm ||
-                            filterMode !== "all" ||
-                            categoryFilter !== "All") && (
-                            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                                <p className="text-sm text-zinc-500">
-                                    Showing{" "}
-                                    <strong className="text-zinc-900">
-                                        {visibleItems.length}
-                                    </strong>{" "}
-                                    items
-                                </p>
-
-                                <button
-                                    type="button"
-                                    onClick={clearFilters}
-                                    className="text-sm font-bold text-orange-600 hover:text-orange-700"
-                                >
-                                    Clear filters
-                                </button>
-                            </div>
-                        )}
-                    </section>
-                )}
-
-                {totalItems > 0 && (
-                    <section className="mt-5 rounded-3xl border border-orange-100 bg-orange-50/70 p-5 shadow-sm">
-                        <div className="flex flex-col gap-4">
-                            <div>
-                                <p className="font-bold text-zinc-900">
-                                    ➕ Add your own item
-                                </p>
-                                <p className="mt-1 text-sm text-zinc-500">
-                                    Add something that was not included
-                                    in the AI-generated list.
-                                </p>
-                            </div>
-
-                            <div className="grid gap-3 md:grid-cols-[1.5fr_1fr_1fr_auto]">
-                                <input
-                                    value={newItemName}
-                                    onChange={(event) =>
-                                        setNewItemName(
-                                            event.target.value
-                                        )
-                                    }
-                                    placeholder="Item name"
-                                    className="rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500"
-                                />
-
-                                <input
-                                    value={newItemQuantity}
-                                    onChange={(event) =>
-                                        setNewItemQuantity(
-                                            event.target.value
-                                        )
-                                    }
-                                    placeholder="Quantity"
-                                    className="rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500"
-                                />
-
-                                <input
-                                    value={newItemCost}
-                                    onChange={(event) =>
-                                        setNewItemCost(
-                                            event.target.value
-                                        )
-                                    }
-                                    placeholder="Cost (Rs.)"
-                                    inputMode="decimal"
-                                    className="rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500"
-                                />
-
-                                <button
-                                    type="button"
-                                    onClick={addCustomItem}
-                                    disabled={!newItemName.trim()}
-                                    className="rounded-xl bg-orange-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    Add Item
-                                </button>
-                            </div>
-                        </div>
-                    </section>
-                )}
-
-                <section className="mt-5 rounded-3xl border border-zinc-100 bg-white p-5 shadow-sm">
-                    <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
+                    <section className="mt-5 rounded-3xl border border-zinc-100 bg-white p-3 shadow-sm sm:p-4">
+                    <div className="grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap sm:gap-3">
                         <button
                             type="button"
                             onClick={toggleAllItems}
                             disabled={!totalItems}
-                            className="col-span-2 inline-flex w-full items-center justify-center rounded-2xl bg-orange-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-orange-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-1 sm:w-auto sm:rounded-full sm:px-5 sm:py-2.5"
+                            className="col-span-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-orange-700 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-1 sm:w-auto sm:rounded-full sm:px-5"
                         >
-                            {purchasedItems === totalItems &&
-                            totalItems > 0
-                                ? "☑️ Unselect All"
-                                : "☑️ Select All"}
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={clearCheckedItems}
-                            disabled={!purchasedItems}
-                            className="inline-flex w-full items-center justify-center rounded-2xl bg-zinc-900 px-3 py-3 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-zinc-800 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-full sm:px-5 sm:py-2.5"
-                        >
-                            ↩ Clear Purchased
+                            <span aria-hidden="true">☑</span>
+                            <span>
+                                {purchasedItems === totalItems && totalItems > 0
+                                    ? "Unselect All"
+                                    : "Select All"}
+                            </span>
                         </button>
 
                         <button
                             type="button"
                             onClick={copyShoppingList}
                             disabled={!totalItems}
-                            className="inline-flex w-full items-center justify-center rounded-2xl border border-zinc-200 bg-white px-3 py-3 text-sm font-bold text-zinc-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-zinc-50 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-full sm:px-5 sm:py-2.5"
+                            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm font-bold text-zinc-800 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-full sm:px-5"
                         >
-                            {copied ? "✓ Copied" : "📋 Copy"}
+                            <span aria-hidden="true">{copied ? "✓" : "⧉"}</span>
+                            <span>{copied ? "Copied" : "Copy List"}</span>
                         </button>
 
                         <button
                             type="button"
                             onClick={downloadShoppingList}
                             disabled={!totalItems}
-                            className="inline-flex w-full items-center justify-center rounded-2xl border border-zinc-200 bg-white px-3 py-3 text-sm font-bold text-zinc-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-zinc-50 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-full sm:px-5 sm:py-2.5"
+                            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm font-bold text-zinc-800 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-full sm:px-5"
                         >
-                            {downloaded
-                                ? "✓ Downloaded"
-                                : "⬇️ Download TXT"}
+                            <span aria-hidden="true">{downloaded ? "✓" : "↓"}</span>
+                            <span>{downloaded ? "Downloaded" : "Download"}</span>
                         </button>
 
                         <button
                             type="button"
                             onClick={sendToWhatsApp}
                             disabled={!totalItems}
-                            className="inline-flex w-full items-center justify-center rounded-2xl bg-green-600 px-3 py-3 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-green-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-full sm:px-5 sm:py-2.5"
+                            className="col-span-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-green-700 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-1 sm:w-auto sm:rounded-full sm:px-5"
                         >
-                            {whatsappOpened
-                                ? "✓ WhatsApp Opened"
-                                : "📱 WhatsApp"}
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={clearShoppingList}
-                            disabled={!totalItems}
-                            className="inline-flex w-full items-center justify-center rounded-2xl bg-red-50 px-3 py-3 text-sm font-bold text-red-600 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-red-100 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-full sm:px-5 sm:py-2.5"
-                        >
-                            🗑️ Clear List
+                            <span aria-hidden="true">{whatsappOpened ? "✓" : "↗"}</span>
+                            <span>{whatsappOpened ? "WhatsApp Opened" : "Share on WhatsApp"}</span>
                         </button>
                     </div>
                 </section>
+                )}
 
                 {ingredientItems.length > 0 ? (
                     <section className="mt-5 overflow-hidden rounded-3xl border border-zinc-100 bg-white shadow-lg">

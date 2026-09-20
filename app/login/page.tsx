@@ -293,7 +293,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative min-h-[calc(100dvh-56px)] overflow-hidden bg-[#eef4ff] px-3 py-5 text-zinc-900 sm:min-h-[calc(100vh-72px)] sm:px-6 sm:py-8 lg:py-10">
+    <main className="relative min-h-[calc(100vh-72px)] overflow-hidden bg-[#eef4ff] px-3 py-5 text-zinc-900 sm:px-6 sm:py-8 lg:py-10">
       {/* Background grid */}
       <div
         className="pointer-events-none absolute inset-0 opacity-60"
@@ -309,11 +309,11 @@ export default function LoginPage() {
       <div className="pointer-events-none absolute -right-24 bottom-0 h-80 w-80 rounded-full bg-cyan-300/30 blur-3xl" />
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/70 blur-3xl" />
 
-      <div className="relative mx-auto flex min-h-[calc(100dvh-56px)] w-full items-start justify-center px-0 py-1 sm:min-h-[calc(100vh-72px)] sm:items-center sm:px-2 sm:py-6">
+      <div className="relative mx-auto flex min-h-[calc(100vh-72px)] w-full items-center justify-center py-2 sm:py-4">
         {/* Main circular liquid-glass container */}
-        <div className="relative flex min-h-0 w-full max-w-[370px] items-center justify-center rounded-[1.75rem] border border-white/80 bg-white/25 p-4 shadow-[0_24px_80px_rgba(15,71,184,0.16)] backdrop-blur-2xl sm:h-[min(88vw,620px)] sm:w-[min(94vw,620px)] sm:max-w-none sm:rounded-full sm:p-8">
+        <div className="relative w-full max-w-[520px] rounded-[28px] border border-white/80 bg-white/55 p-5 shadow-[0_24px_80px_rgba(15,71,184,0.16)] backdrop-blur-2xl sm:rounded-[38px] sm:p-8">
           {/* Inner circular ring */}
-          <div className="pointer-events-none absolute inset-2.5 rounded-[1.4rem] border border-white/50 sm:inset-10 sm:rounded-full" />
+          <div className="pointer-events-none absolute inset-2.5 rounded-[22px] border border-white/55 sm:inset-4 sm:rounded-[30px]" />
 
           {/* Decorative circles */}
           <div className="pointer-events-none absolute left-[12%] top-[18%] h-5 w-5 rounded-full bg-blue-500/30 blur-[1px]" />
@@ -322,10 +322,10 @@ export default function LoginPage() {
           <div className="pointer-events-none absolute bottom-[17%] right-[20%] h-6 w-6 rounded-full bg-white/70 blur-[1px]" />
 
           {/* Content directly inside circle */}
-          <div className="relative z-10 w-full max-w-[340px] px-1 py-1 sm:max-w-[370px] sm:px-0 sm:py-0">
+          <div className="relative z-10 mx-auto w-full max-w-[390px] px-0">
             {/* Brand */}
-            <div className="mb-4 text-center sm:mb-5">
-              <div className="mx-auto mb-2.5 flex h-11 w-11 items-center justify-center sm:mb-3 sm:h-12 sm:w-12 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 text-xl shadow-lg shadow-blue-300/40">
+            <div className="mb-6 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 text-xl shadow-lg shadow-blue-300/40">
                 🍽️
               </div>
 
@@ -333,13 +333,13 @@ export default function LoginPage() {
                 LOCALPLATE AI
               </p>
 
-              <h1 className="mt-1.5 text-2xl font-bold tracking-tight sm:text-3xl">
+              <h1 className="mt-2 text-[28px] font-bold tracking-tight sm:text-3xl">
                 {mode === "login"
                   ? "Welcome back"
                   : "Create your account"}
               </h1>
 
-              <p className="mx-auto mt-1.5 max-w-[330px] text-xs leading-5 text-zinc-500 sm:text-sm">
+              <p className="mx-auto mt-2 max-w-[340px] text-sm leading-5 text-zinc-500">
                 {mode === "login"
                   ? "Sign in to continue planning smarter meals."
                   : "Join LocalPlate AI and start planning personalized meals."}
@@ -361,7 +361,7 @@ export default function LoginPage() {
 
             <form
               onSubmit={handleSubmit}
-              className="space-y-2"
+              className="space-y-3"
               autoComplete="on"
             >
               {/* Name */}
@@ -387,7 +387,7 @@ export default function LoginPage() {
                       value={name}
                       onChange={(event) => setName(event.target.value)}
                       placeholder="Your name"
-                      className="h-10 min-w-0 w-full bg-transparent text-[13px] outline-none placeholder:text-zinc-400"
+                      className="h-11 w-full bg-transparent text-[15px] outline-none placeholder:text-zinc-400"
                     />
                   </div>
                 </div>
@@ -416,7 +416,7 @@ export default function LoginPage() {
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     placeholder="you@example.com"
-                    className="h-10 min-w-0 w-full bg-transparent text-[13px] outline-none placeholder:text-zinc-400"
+                    className="h-11 w-full bg-transparent text-[15px] outline-none placeholder:text-zinc-400"
                   />
                 </div>
               </div>
@@ -436,7 +436,6 @@ export default function LoginPage() {
                   </span>
 
                   <input
-                    ref={passwordRef}
                     id="password"
                     name="password"
                     type={showPassword ? "text" : "password"}
@@ -450,7 +449,7 @@ export default function LoginPage() {
                         ? "Your password"
                         : "Create a password"
                     }
-                    className="h-10 min-w-0 w-full bg-transparent text-[13px] outline-none placeholder:text-zinc-400"
+                    className="h-11 w-full bg-transparent text-[15px] outline-none placeholder:text-zinc-400"
                   />
 
                   <button
@@ -473,7 +472,7 @@ export default function LoginPage() {
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }
-                    className="ml-1.5 rounded-lg p-1.5 text-zinc-500 transition hover:bg-blue-50 hover:text-blue-600"
+                    className="ml-2 rounded-lg p-1.5 text-zinc-500 transition hover:bg-blue-50 hover:text-blue-600"
                   >
                     <EyeIcon hidden={!showPassword} />
                   </button>
@@ -506,7 +505,7 @@ export default function LoginPage() {
                         setConfirmPassword(event.target.value)
                       }
                       placeholder="Repeat your password"
-                      className="h-10 min-w-0 w-full bg-transparent text-[13px] outline-none placeholder:text-zinc-400"
+                      className="h-11 w-full bg-transparent text-[15px] outline-none placeholder:text-zinc-400"
                     />
 
                     <button
@@ -527,7 +526,7 @@ export default function LoginPage() {
                           ? "Hide password"
                           : "Show password"
                       }
-                      className="ml-1.5 rounded-lg p-1.5 text-zinc-500 transition hover:bg-blue-50 hover:text-blue-600"
+                      className="ml-2 rounded-lg p-1.5 text-zinc-500 transition hover:bg-blue-50 hover:text-blue-600"
                     >
                       <EyeIcon hidden={!showConfirmPassword} />
                     </button>
@@ -563,7 +562,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || googleLoading}
-                className="mt-1.5 flex h-11 w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-700 to-blue-500 px-5 text-sm font-semibold text-white shadow-lg shadow-blue-300/40 transition hover:-translate-y-0.5 hover:from-blue-800 hover:to-blue-600 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-2 flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-700 to-blue-500 px-5 text-sm font-semibold text-white shadow-lg shadow-blue-300/40 transition hover:-translate-y-0.5 hover:from-blue-800 hover:to-blue-600 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading
                   ? mode === "login"
@@ -578,7 +577,7 @@ export default function LoginPage() {
             {/* Google Login */}
             {mode === "login" && (
               <>
-                <div className="my-3.5 flex items-center gap-3">
+                <div className="my-4 flex items-center gap-3">
                   <div className="h-px flex-1 bg-zinc-300/70" />
                   <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-400">
                     Or continue with
@@ -601,7 +600,7 @@ export default function LoginPage() {
             )}
 
             {/* Switch mode */}
-            <div className="mt-3.5 text-center text-xs text-zinc-500 sm:text-sm">
+            <div className="mt-4 text-center text-xs text-zinc-500 sm:text-sm">
               {mode === "login" ? (
                 <>
                   Don&apos;t have an account?{" "}
@@ -627,7 +626,7 @@ export default function LoginPage() {
               )}
             </div>
 
-            <p className="mx-auto mt-2.5 max-w-[330px] text-center text-[10px] leading-4 text-zinc-400">
+            <p className="mx-auto mt-3 max-w-[330px] text-center text-[10px] leading-4 text-zinc-400">
               Your account helps keep your LocalPlate AI experience personal
               and secure.
             </p>
@@ -638,7 +637,7 @@ export default function LoginPage() {
       {/* Welcome / Login instructions popup */}
       {showWelcomePopup && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-3 py-4 sm:px-4 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-4 backdrop-blur-md"
           role="dialog"
           aria-modal="true"
           aria-labelledby="welcome-popup-title"

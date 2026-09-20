@@ -387,7 +387,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
     <main className="min-h-screen bg-[#fffaf5] px-5 py-10 text-zinc-900 md:px-8">
 
       <div className="mx-auto max-w-6xl">
-        
+
 
         {/* Hero */}
         <section className="mx-auto max-w-3xl text-center">
@@ -435,20 +435,19 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
               What kind of food do you prefer?
             </label>
 
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              {["Pakistani", "Indian", "Any"].map((option) => (
-                <button
-                  type="button"
-                  key={option}
-                  onClick={() => setFoodType(option)}
-                  className={`rounded-xl border px-4 py-3 text-sm font-semibold transition-all duration-200 ease-out ${foodType === option
-                      ? "border-orange-600 bg-orange-600 text-white shadow-sm"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400 hover:bg-orange-50"
-                    }`}
-                >
-                  {option}
-                </button>
-              ))}
+            <div className="mt-4 grid grid-cols-3 gap-3 justify-items-center">              {["Pakistani", "Indian", "Any"].map((option) => (
+              <button
+                type="button"
+                key={option}
+                onClick={() => setFoodType(option)}
+                className={`rounded-xl border px-4 py-3 text-sm font-semibold transition-all duration-200 ease-out ${foodType === option
+                  ? "border-orange-600 bg-orange-600 text-white shadow-sm"
+                  : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400 hover:bg-orange-50"
+                  }`}
+              >
+                {option}
+              </button>
+            ))}
             </div>
           </div>
 
@@ -470,8 +469,8 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                   key={option}
                   onClick={() => setGoal(option)}
                   className={`rounded-xl border px-3 py-3 text-sm font-semibold transition-all duration-200 ease-out ${goal === option
-                      ? "border-orange-600 bg-orange-600 text-white shadow-sm"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400 hover:bg-orange-50"
+                    ? "border-orange-600 bg-orange-600 text-white shadow-sm"
+                    : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400 hover:bg-orange-50"
                     }`}
                 >
                   {option}
@@ -486,20 +485,19 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
               What&apos;s your budget for this meal?
             </label>
 
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              {["500", "1000", "2000"].map((amount) => (
-                <button
-                  type="button"
-                  key={amount}
-                  onClick={() => setBudget(amount)}
-                  className={`rounded-xl border px-4 py-3 text-sm font-semibold transition-all duration-200 ease-out ${budget === amount
-                      ? "border-orange-600 bg-orange-600 text-white shadow-sm"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400 hover:bg-orange-50"
-                    }`}
-                >
-                  Rs. {amount}
-                </button>
-              ))}
+            <div className="mt-4 grid grid-cols-3 gap-3 justify-items-center">              {["500", "1000", "2000"].map((amount) => (
+              <button
+                type="button"
+                key={amount}
+                onClick={() => setBudget(amount)}
+                className={`rounded-xl border px-4 py-3 text-sm font-semibold transition-all duration-200 ease-out ${budget === amount
+                  ? "border-orange-600 bg-orange-600 text-white shadow-sm"
+                  : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400 hover:bg-orange-50"
+                  }`}
+              >
+                Rs. {amount}
+              </button>
+            ))}
             </div>
           </div>
 
@@ -516,8 +514,8 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                   key={option}
                   onClick={() => setMealType(option)}
                   className={`rounded-xl border px-4 py-3 text-sm font-semibold transition-all duration-200 ease-out ${mealType === option
-                      ? "border-orange-600 bg-orange-600 text-white shadow-sm"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400 hover:bg-orange-50"
+                    ? "border-orange-600 bg-orange-600 text-white shadow-sm"
+                    : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400 hover:bg-orange-50"
                     }`}
                 >
                   {option}
@@ -539,8 +537,8 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                   key={option}
                   onClick={() => setDiet(option)}
                   className={`flex min-h-[58px] w-full items-center justify-center rounded-xl border px-2 py-3 text-center text-sm font-semibold leading-tight transition-all duration-200 ease-out ${diet === option
-                      ? "border-orange-600 bg-orange-600 text-white shadow-sm"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400 hover:bg-orange-50"
+                    ? "border-orange-600 bg-orange-600 text-white shadow-sm"
+                    : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400 hover:bg-orange-50"
                     }`}
                 >
                   {option}
@@ -562,8 +560,8 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                   key={minutes}
                   onClick={() => setTime(minutes)}
                   className={`rounded-xl border px-4 py-3 text-sm font-semibold transition-all duration-200 ease-out ${time === minutes
-                      ? "border-orange-600 bg-orange-600 text-white shadow-sm"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400 hover:bg-orange-50"
+                    ? "border-orange-600 bg-orange-600 text-white shadow-sm"
+                    : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400 hover:bg-orange-50"
                     }`}
                 >
                   {minutes} min
@@ -587,8 +585,8 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                     key={number}
                     onClick={() => setServings(number)}
                     className={`rounded-xl border px-3 py-3 text-sm font-semibold transition-all duration-200 ease-out ${servings === number
-                        ? "border-orange-600 bg-orange-600 text-white"
-                        : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400"
+                      ? "border-orange-600 bg-orange-600 text-white"
+                      : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400"
                       }`}
                   >
                     {number}
@@ -609,8 +607,8 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                     key={option}
                     onClick={() => setSpiceLevel(option)}
                     className={`rounded-xl border px-3 py-3 text-sm font-semibold transition-all duration-200 ease-out ${spiceLevel === option
-                        ? "border-orange-600 bg-orange-600 text-white"
-                        : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400"
+                      ? "border-orange-600 bg-orange-600 text-white"
+                      : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400"
                       }`}
                   >
                     {option}
