@@ -1,8 +1,33 @@
 import { NextResponse } from "next/server";
-
+import { createClient } from "@/lib/supabase/server";
+import { validateAIRequest } from "@/lib/validation";
 export async function POST(req: Request) {
   try {
-    let body: { message?: string };
+    // ==========================================
+    // AUTHENTICATION CHECK
+    // ==========================================
+
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        {
+          error: "Unauthorized. Please sign in first.",
+        },
+        { status: 401 }
+      );
+    }
+
+    // ==========================================
+    // REQUEST BODY
+    // ==========================================
+
+    let body: unknown;
 
     try {
       body = await req.json();
@@ -13,21 +38,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const message = body?.message?.trim();
+    const validation = validateAIRequest(body);
 
-    if (!message) {
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "Message is required." },
+        {
+          error: validation.error.issues[0]?.message || "Invalid request.",
+        },
         { status: 400 }
       );
     }
 
-    if (message.length > 20000) {
-      return NextResponse.json(
-        { error: "Message is too long." },
-        { status: 400 }
-      );
-    }
+    const { message } = validation.data;
+
+    // ==========================================
+    // GROQ API KEY
+    // ==========================================
 
     const apiKey = process.env.GROQ_API_KEY;
 
@@ -42,6 +68,10 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
+
+    // ==========================================
+    // GROQ REQUEST
+    // ==========================================
 
     const controller = new AbortController();
 
@@ -285,6 +315,10 @@ Be concise, practical and helpful.
     } finally {
       clearTimeout(timeout);
     }
+
+    // ==========================================
+    // GROQ RESPONSE
+    // ==========================================
 
     let data: any;
 
