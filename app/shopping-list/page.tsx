@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type FilterMode = "all" | "remaining" | "purchased";
@@ -18,6 +19,21 @@ type ShoppingItem = {
     name: string;
     quantity: string;
     cost: number | null;
+};
+
+type Toast = {
+    id: number;
+    message: string;
+    tone: "success" | "error";
+    action?: { label: string; run: () => void };
+};
+
+type ListSnapshot = {
+    shoppingList: string;
+    checkedItems: string[];
+    favoriteItems: string[];
+    customItems: ShoppingItem[];
+    manualPrices: Record<string, number>;
 };
 
 const CATEGORY_ORDER: Category[] = [
@@ -194,6 +210,7 @@ function itemText(
 }
 
 export default function ShoppingListPage() {
+    const router = useRouter();
     const [shoppingList, setShoppingList] = useState("");
     const [checkedItems, setCheckedItems] = useState<string[]>([]);
     const [favoriteItems, setFavoriteItems] = useState<string[]>([]);
@@ -212,6 +229,57 @@ export default function ShoppingListPage() {
     const [copied, setCopied] = useState(false);
     const [whatsappOpened, setWhatsappOpened] = useState(false);
     const [downloaded, setDownloaded] = useState(false);
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
+    const [clearing, setClearing] = useState(false);
+    const [clearError, setClearError] = useState("");
+    const [collapsedCategories, setCollapsedCategories] = useState<
+        Category[]
+    >([]);
+    const [favoritesOnly, setFavoritesOnly] = useState(false);
+    const [toast, setToast] = useState<Toast | null>(null);
+    const toastTimer = useRef<number | null>(null);
+
+    const showToast = (
+        message: string,
+        tone: "success" | "error" = "success",
+        action?: { label: string; run: () => void },
+        duration = 3000
+    ) => {
+        if (toastTimer.current) window.clearTimeout(toastTimer.current);
+
+        setToast({ id: Date.now(), message, tone, action });
+
+        toastTimer.current = window.setTimeout(
+            () => setToast(null),
+            duration
+        );
+    };
+
+    useEffect(() => {
+        return () => {
+            if (toastTimer.current) window.clearTimeout(toastTimer.current);
+        };
+    }, []);
+
+    // Clear dialog: Escape closes it, page does not scroll behind it.
+    useEffect(() => {
+        if (!showClearConfirm) return;
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape" && !clearing) {
+                setShowClearConfirm(false);
+            }
+        };
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        document.addEventListener("keydown", onKeyDown);
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener("keydown", onKeyDown);
+        };
+    }, [showClearConfirm, clearing]);
 
     const [newItemName, setNewItemName] = useState("");
     const [newItemQuantity, setNewItemQuantity] = useState("");
@@ -332,7 +400,25 @@ export default function ShoppingListPage() {
                 if (error) throw error;
                 if (cancelled) return;
 
-                if (data) {
+                const localList =
+                    localStorage.getItem("localplate_shopping_list") || "";
+                const lastSynced = localStorage.getItem(
+                    "localplate_synced_list"
+                );
+                const dbList =
+                    typeof data?.shopping_list === "string"
+                        ? data.shopping_list
+                        : "";
+
+                // A new plan was written locally (planner / weekly plan)
+                // and the database has not seen it yet.
+                const localIsNewer =
+                    !!data &&
+                    localList.trim() !== "" &&
+                    localList !== lastSynced &&
+                    localList !== dbList;
+
+                if (data && !localIsNewer) {
                     const dbShoppingList =
                         typeof data.shopping_list === "string"
                             ? data.shopping_list
@@ -409,7 +495,19 @@ export default function ShoppingListPage() {
                         "localplate_manual_prices",
                         JSON.stringify(dbPrices)
                     );
-                              } else {
+                    localStorage.setItem(
+                        "localplate_synced_list",
+                        dbShoppingList
+                    );
+                } else if (localIsNewer) {
+                    // New list: keep it, reset progress of the old list.
+                    setCheckedItems([]);
+                    setFavoriteItems([]);
+                    setManualPrices({});
+                    localStorage.removeItem("localplate_checked_items");
+                    localStorage.removeItem("localplate_favorite_items");
+                    localStorage.removeItem("localplate_manual_prices");
+                } else {
                     // First login: migrate the existing local list into the user's account.
 
                     const { error: migrationError } = await supabase
@@ -453,6 +551,8 @@ export default function ShoppingListPage() {
                         );
                         throw migrationError;
                     }
+
+                    localStorage.setItem("localplate_synced_list", localList);
                 }
             } catch (error) {
                 console.error(
@@ -500,6 +600,8 @@ export default function ShoppingListPage() {
                 );
 
                 if (error) throw error;
+
+                localStorage.setItem("localplate_synced_list", shoppingList);
             } catch (error) {
                 console.error("Failed to sync shopping list:", error);
             } finally {
@@ -612,15 +714,21 @@ export default function ShoppingListPage() {
                 categoryFilter === "All" ||
                 getCategory(item.name) === categoryFilter;
 
+            const matchesFavorites =
+                !favoritesOnly || favoriteItems.includes(item.id);
+
             return (
                 matchesSearch &&
                 matchesFilter &&
-                matchesCategory
+                matchesCategory &&
+                matchesFavorites
             );
         });
     }, [
         ingredientItems,
         checkedItems,
+        favoriteItems,
+        favoritesOnly,
         searchTerm,
         filterMode,
         categoryFilter,
@@ -789,6 +897,7 @@ export default function ShoppingListPage() {
         setNewItemName("");
         setNewItemQuantity("");
         setNewItemCost("");
+        showToast(`"${name}" added to your list`);
     };
 
     const startEditQuantity = (item: ShoppingItem) => {
@@ -846,7 +955,7 @@ export default function ShoppingListPage() {
 
         const numericPrice = Number(value);
         if (!Number.isFinite(numericPrice) || numericPrice < 0) {
-            alert("Please valid price enter karein.");
+            showToast("Please enter a valid price.", "error");
             return;
         }
 
@@ -909,7 +1018,7 @@ export default function ShoppingListPage() {
             window.setTimeout(() => setCopied(false), 2000);
         } catch (error) {
             console.error("Shopping list copy failed:", error);
-            alert("Shopping list copy nahi ho saki.");
+            showToast("Could not copy the list.", "error");
         }
     };
 
@@ -950,7 +1059,158 @@ export default function ShoppingListPage() {
         window.setTimeout(() => setDownloaded(false), 2000);
     };
 
+    const restoreSnapshot = (snapshot: ListSnapshot) => {
+        setShoppingList(snapshot.shoppingList);
+        setCheckedItems(snapshot.checkedItems);
+        setFavoriteItems(snapshot.favoriteItems);
+        setCustomItems(snapshot.customItems);
+        setManualPrices(snapshot.manualPrices);
+
+        localStorage.setItem(
+            "localplate_shopping_list",
+            snapshot.shoppingList
+        );
+        localStorage.setItem(
+            "localplate_checked_items",
+            JSON.stringify(snapshot.checkedItems)
+        );
+        localStorage.setItem(
+            "localplate_favorite_items",
+            JSON.stringify(snapshot.favoriteItems)
+        );
+        localStorage.setItem(
+            "localplate_custom_items",
+            JSON.stringify(snapshot.customItems)
+        );
+        localStorage.setItem(
+            "localplate_manual_prices",
+            JSON.stringify(snapshot.manualPrices)
+        );
+
+        showToast("Shopping list restored");
+    };
+
+    const clearShoppingList = async () => {
+        const snapshot: ListSnapshot = {
+            shoppingList,
+            checkedItems,
+            favoriteItems,
+            customItems,
+            manualPrices,
+        };
+
+        setClearing(true);
+        setClearError("");
+
+        setShoppingList("");
+        setCheckedItems([]);
+        setFavoriteItems([]);
+        setCustomItems([]);
+        setManualPrices({});
+        setSearchTerm("");
+        setFilterMode("all");
+        setCategoryFilter("All");
+
+        [
+            "localplate_shopping_list",
+            "localplate_checked_items",
+            "localplate_favorite_items",
+            "localplate_custom_items",
+            "localplate_manual_prices",
+        ].forEach((key) => localStorage.removeItem(key));
+
+        localStorage.setItem("localplate_synced_list", "");
+
+        try {
+            const supabase = createClient();
+            const {
+                data: { user },
+            } = await supabase.auth.getUser();
+
+            if (user) {
+                const { error } = await supabase
+                    .from("shopping_lists")
+                    .upsert(
+                        {
+                            user_id: user.id,
+                            shopping_list: "",
+                            checked_items: [],
+                            favorite_items: [],
+                            custom_items: [],
+                            manual_prices: {},
+                            updated_at: new Date().toISOString(),
+                        },
+                        { onConflict: "user_id" }
+                    );
+
+                if (error) throw error;
+            }
+        } catch (error) {
+            console.error("Failed to clear shopping list:", error);
+            setClearError(
+                "List yahan se clear ho gayi, lekin database se clear nahi ho saki. Refresh par wapas aa sakti hai. " +
+                    (error instanceof Error
+                        ? error.message
+                        : JSON.stringify(error))
+            );
+            setClearing(false);
+            return;
+        }
+
+        setClearing(false);
+        setShowClearConfirm(false);
+
+        showToast(
+            "Shopping list cleared",
+            "success",
+            { label: "Undo", run: () => restoreSnapshot(snapshot) },
+            7000
+        );
+    };
+
+    const toggleCategory = (category: Category) => {
+        setCollapsedCategories((current) =>
+            current.includes(category)
+                ? current.filter((item) => item !== category)
+                : [...current, category]
+        );
+    };
+
+    const categoryCounts = ingredientItems.reduce(
+        (counts, item) => {
+            counts[getCategory(item.name)] += 1;
+            return counts;
+        },
+        {
+            Vegetables: 0,
+            Meat: 0,
+            Dairy: 0,
+            Pantry: 0,
+            Spices: 0,
+            Other: 0,
+        } as Record<Category, number>
+    );
+
+    const hasActiveFilters =
+        searchTerm.trim() !== "" ||
+        filterMode !== "all" ||
+        categoryFilter !== "All" ||
+        favoritesOnly;
+
+    const handleBack = () => {
+        if (window.history.length > 1) {
+            router.back();
+        } else {
+            router.push("/planner");
+        }
+    };
+
+    const favoriteCount = ingredientItems.filter((item) =>
+        favoriteItems.includes(item.id)
+    ).length;
+
     const clearFilters = () => {
+        setFavoritesOnly(false);
         setSearchTerm("");
         setFilterMode("all");
         setCategoryFilter("All");
@@ -963,63 +1223,70 @@ export default function ShoppingListPage() {
     }
 
     return (
-        <main className="min-h-screen bg-[#fffaf5] px-4 py-8 text-zinc-900 md:px-8 md:py-10">
+        <main className="min-h-screen bg-[#fffaf5] px-4 pb-28 pt-8 text-zinc-900 md:px-8 md:pb-10 md:pt-10">
             <div className="mx-auto max-w-7xl">
-                <nav className="mb-6 w-full sm:mb-8">
-                    <div className="grid w-full grid-cols-2 gap-2.5 sm:flex sm:items-center sm:justify-between sm:gap-3">
-                        <a
-                            href="/planner"
-                            className="group col-span-2 inline-flex min-h-12 items-center justify-center gap-2.5 rounded-2xl border border-orange-200 bg-white px-4 py-3 text-sm font-bold text-orange-700 shadow-sm shadow-orange-100/60 transition-all duration-200 hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-50 hover:shadow-md active:translate-y-0 sm:col-span-1 sm:w-auto sm:justify-start"
+                <header className="sticky top-0 z-30 -mx-4 -mt-8 mb-5 border-b border-orange-100 bg-[#fffaf5]/90 px-4 py-3 backdrop-blur md:-mx-8 md:-mt-10 md:px-8">
+                    <div className="mx-auto flex max-w-7xl items-center gap-2.5 sm:gap-3">
+                        <button
+                            type="button"
+                            onClick={handleBack}
+                            aria-label="Go back"
+                            className="group inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-orange-200 bg-white pl-3 pr-4 text-sm font-bold text-orange-700 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 active:scale-95"
                         >
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-50 text-lg transition-transform duration-200 group-hover:-translate-x-0.5">
+                            <span
+                                aria-hidden="true"
+                                className="text-lg leading-none transition-transform duration-200 group-hover:-translate-x-0.5"
+                            >
                                 ←
                             </span>
-                            <span>Back to Planner</span>
+                            <span>Back</span>
+                        </button>
+
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-bold text-zinc-900">
+                                Shopping List
+                            </p>
+                            <p className="truncate text-xs text-zinc-500">
+                                {totalItems} items · {progress}% done
+                            </p>
+                        </div>
+
+                        <a
+                            href="/weekly-plan"
+                            aria-label="Weekly Plan"
+                            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-indigo-200 bg-white px-3.5 text-sm font-bold text-indigo-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50 active:scale-95 sm:px-4"
+                        >
+                            <span aria-hidden="true">📅</span>
+                            <span className="hidden sm:inline">Weekly Plan</span>
                         </a>
 
-                        <div className="col-span-2 grid grid-cols-2 gap-2.5 sm:flex sm:w-auto sm:gap-2.5">
-                            <a
-                                href="/weekly-plan"
-                                className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-indigo-200 bg-white px-3 py-3 text-sm font-bold text-indigo-700 shadow-sm shadow-indigo-100/50 transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:shadow-md active:translate-y-0 sm:px-4"
-                            >
-                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-sm transition-transform duration-200 group-hover:scale-105">
-                                    📅
-                                </span>
-                                <span className="truncate">Weekly Plan</span>
-                            </a>
-
-                            <a
-                                href="/saved-plans"
-                                className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-3 text-sm font-bold text-zinc-800 shadow-sm shadow-zinc-100/70 transition-all duration-200 hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 hover:shadow-md active:translate-y-0 sm:px-4"
-                            >
-                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-sm transition-colors duration-200 group-hover:bg-orange-100">
-                                    💾
-                                </span>
-                                <span className="truncate">Saved Plans</span>
-                            </a>
-                        </div>
+                        <a
+                            href="/saved-plans"
+                            aria-label="Saved Plans"
+                            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-zinc-200 bg-white px-3.5 text-sm font-bold text-zinc-800 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 active:scale-95 sm:px-4"
+                        >
+                            <span aria-hidden="true">💾</span>
+                            <span className="hidden sm:inline">Saved Plans</span>
+                        </a>
                     </div>
-                </nav>
+                </header>
 
-                <section className="rounded-[2rem] bg-zinc-950 px-6 py-10 text-white shadow-xl md:px-10 md:py-14">
-                    <div className="max-w-4xl">
-                        <span className="inline-flex rounded-full bg-orange-500/15 px-4 py-2 text-sm font-semibold text-orange-300 ring-1 ring-orange-400/20">
-                            🛒 Smart Shopping Workspace
-                        </span>
-
-                        <h1 className="mt-5 text-4xl font-bold tracking-tight md:text-6xl">
-                            Shop
-                            <span className="text-orange-500">
-                                {" "}smarter.
+                <section className="rounded-[2rem] bg-zinc-950 px-6 py-8 text-white shadow-xl md:px-10 md:py-10">
+                    <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                        <div>
+                            <span className="inline-flex rounded-full bg-orange-500/15 px-4 py-2 text-sm font-semibold text-orange-300 ring-1 ring-orange-400/20">
+                                🛒 Smart Shopping Workspace
                             </span>
-                        </h1>
 
-                        <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-400 md:text-lg">
-                            Search, organize, check off, edit and share
-                            your LocalPlate AI ingredients from one place.
-                        </p>
+                            <h1 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">
+                                Shop
+                                <span className="text-orange-500">
+                                    {" "}smarter.
+                                </span>
+                            </h1>
+                        </div>
 
-                        <div className="mt-8 flex flex-wrap gap-3">
+                        <div className="flex flex-wrap gap-2">
                             <span className="rounded-full bg-white/10 px-4 py-2 text-sm">
                                 {totalItems} items
                             </span>
@@ -1027,13 +1294,13 @@ export default function ShoppingListPage() {
                                 {categoriesUsed} categories
                             </span>
                             <span className="rounded-full bg-white/10 px-4 py-2 text-sm">
-                                {progress}% complete
+                                {syncing ? "☁️ Syncing..." : "☁️ Saved"}
                             </span>
                         </div>
                     </div>
                 </section>
 
-                <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <section className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                     {[
                         ["Total", totalItems.toString(), "🛒"],
                         ["Purchased", purchasedItems.toString(), "✅"],
@@ -1043,11 +1310,10 @@ export default function ShoppingListPage() {
                             `Rs. ${remainingCost.toLocaleString()}`,
                             "💰",
                         ],
-                        ["Progress", `${progress}%`, "📊"],
                     ].map(([label, value, icon]) => (
                         <div
                             key={label}
-                            className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm"
+                            className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm sm:p-5"
                         >
                             <div className="flex items-center justify-between">
                                 <p className="text-sm text-zinc-500">
@@ -1055,7 +1321,7 @@ export default function ShoppingListPage() {
                                 </p>
                                 <span>{icon}</span>
                             </div>
-                            <p className="mt-2 text-xl font-bold">
+                            <p className="mt-2 truncate text-lg font-bold sm:text-xl">
                                 {value}
                             </p>
                         </div>
@@ -1142,13 +1408,208 @@ export default function ShoppingListPage() {
                                 <span aria-hidden="true">{whatsappOpened ? "✓" : "↗"}</span>
                                 <span>{whatsappOpened ? "WhatsApp Opened" : "Share on WhatsApp"}</span>
                             </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setClearError("");
+                                    setShowClearConfirm(true);
+                                }}
+                                className="col-span-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-bold text-red-600 shadow-sm transition hover:bg-red-100 active:scale-[0.98] sm:col-span-1 sm:w-auto sm:rounded-full sm:px-5"
+                            >
+                                <span aria-hidden="true">🗑️</span>
+                                <span>Clear List</span>
+                            </button>
+                        </div>
+                    </section>
+                )}
+
+                <section className="mt-5 rounded-3xl border border-zinc-100 bg-white p-4 shadow-sm sm:p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
+                        Add item
+                    </p>
+
+                    <div className="mt-3 grid gap-2.5 sm:grid-cols-[2fr_1fr_1fr_auto]">
+                        <input
+                            value={newItemName}
+                            onChange={(event) =>
+                                setNewItemName(event.target.value)
+                            }
+                            onKeyDown={(event) => {
+                                if (event.key === "Enter") addCustomItem();
+                            }}
+                            placeholder="Item name (e.g. Milk)"
+                            className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                        />
+
+                        <input
+                            value={newItemQuantity}
+                            onChange={(event) =>
+                                setNewItemQuantity(event.target.value)
+                            }
+                            onKeyDown={(event) => {
+                                if (event.key === "Enter") addCustomItem();
+                            }}
+                            placeholder="Quantity (1 kg)"
+                            className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                        />
+
+                        <input
+                            value={newItemCost}
+                            inputMode="decimal"
+                            onChange={(event) =>
+                                setNewItemCost(event.target.value)
+                            }
+                            onKeyDown={(event) => {
+                                if (event.key === "Enter") addCustomItem();
+                            }}
+                            placeholder="Price (Rs.)"
+                            className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                        />
+
+                        <button
+                            type="button"
+                            onClick={addCustomItem}
+                            disabled={!newItemName.trim()}
+                            className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-orange-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            + Add
+                        </button>
+                    </div>
+                </section>
+
+                {totalItems > 0 && (
+                    <section className="mt-5 rounded-3xl border border-zinc-100 bg-white p-4 shadow-sm sm:p-5">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="relative w-full lg:max-w-sm">
+                                <span
+                                    aria-hidden="true"
+                                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm"
+                                >
+                                    🔎
+                                </span>
+
+                                <input
+                                    value={searchTerm}
+                                    onChange={(event) =>
+                                        setSearchTerm(event.target.value)
+                                    }
+                                    placeholder="Search ingredients..."
+                                    className="w-full rounded-xl border border-zinc-200 py-2.5 pl-10 pr-9 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                                />
+
+                                {searchTerm && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSearchTerm("")}
+                                        aria-label="Clear search"
+                                        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-xs text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                            </div>
+
+                            <div
+                                role="group"
+                                aria-label="Filter by status"
+                                className="inline-flex w-full rounded-xl bg-zinc-100 p-1 lg:w-auto"
+                            >
+                                {(
+                                    [
+                                        ["all", "All", totalItems],
+                                        ["remaining", "Remaining", remainingItems],
+                                        ["purchased", "Purchased", purchasedItems],
+                                    ] as [FilterMode, string, number][]
+                                ).map(([mode, label, count]) => (
+                                    <button
+                                        key={mode}
+                                        type="button"
+                                        onClick={() => setFilterMode(mode)}
+                                        aria-pressed={filterMode === mode}
+                                        className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition lg:flex-none ${filterMode === mode
+                                                ? "bg-orange-600 text-white shadow-sm"
+                                                : "text-zinc-600 hover:bg-white"
+                                            }`}
+                                    >
+                                        {label}
+                                        <span
+                                            className={`rounded-full px-1.5 py-0.5 text-[10px] ${filterMode === mode
+                                                    ? "bg-white/25 text-white"
+                                                    : "bg-white text-zinc-500"
+                                                }`}
+                                        >
+                                            {count}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="-mx-1 mt-3 flex items-center gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+                            <button
+                                type="button"
+                                onClick={() => setFavoritesOnly((value) => !value)}
+                                aria-pressed={favoritesOnly}
+                                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition ${favoritesOnly
+                                        ? "border-yellow-400 bg-yellow-400 text-zinc-900"
+                                        : "border-zinc-200 bg-white text-zinc-600 hover:border-yellow-300 hover:bg-yellow-50"
+                                    }`}
+                            >
+                                <span aria-hidden="true">★</span>
+                                Favorites
+                                <span className="opacity-70">{favoriteCount}</span>
+                            </button>
+
+                            {(
+                                [
+                                    "All",
+                                    ...CATEGORY_ORDER.filter(
+                                        (category) =>
+                                            categoryCounts[category] > 0
+                                    ),
+                                ] as (Category | "All")[]
+                            ).map((category) => (
+                                <button
+                                    key={category}
+                                    type="button"
+                                    onClick={() => setCategoryFilter(category)}
+                                    aria-pressed={categoryFilter === category}
+                                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition ${categoryFilter === category
+                                            ? "border-orange-600 bg-orange-600 text-white"
+                                            : "border-zinc-200 bg-white text-zinc-600 hover:border-orange-300 hover:bg-orange-50"
+                                        }`}
+                                >
+                                    <span aria-hidden="true">
+                                        {category === "All"
+                                            ? "🧺"
+                                            : CATEGORY_ICONS[category]}
+                                    </span>
+                                    {category}
+                                    <span className="opacity-70">
+                                        {category === "All"
+                                            ? totalItems
+                                            : categoryCounts[category]}
+                                    </span>
+                                </button>
+                            ))}
+
+                            {hasActiveFilters && (
+                                <button
+                                    type="button"
+                                    onClick={clearFilters}
+                                    className="ml-1 shrink-0 text-xs font-bold text-orange-600 hover:text-orange-700"
+                                >
+                                    Reset filters
+                                </button>
+                            )}
                         </div>
                     </section>
                 )}
 
                 {ingredientItems.length > 0 ? (
                     <section className="mt-5 overflow-hidden rounded-3xl border border-zinc-100 bg-white shadow-lg">
-                        <div className="flex flex-col gap-2 border-b border-zinc-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-col gap-2 border-b border-zinc-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
                                     Smart ingredients
@@ -1160,13 +1621,34 @@ export default function ShoppingListPage() {
 
                             <div className="text-sm text-zinc-500 sm:text-right">
                                 <p>
-                                    {visibleItems.length} shown
+                                    {visibleItems.length} of {totalItems} shown
                                 </p>
                                 <p className="mt-1 font-semibold text-green-600">
-                                    Rs.{" "}
-                                    {remainingCost.toLocaleString()}{" "}
-                                    remaining
+                                    Rs. {remainingCost.toLocaleString()}{" "}
+                                    <span className="font-medium text-zinc-400">
+                                        remaining of Rs.{" "}
+                                        {totalCost.toLocaleString()}
+                                    </span>
                                 </p>
+                                {groupedVisibleItems.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setCollapsedCategories(
+                                                collapsedCategories.length > 0
+                                                    ? []
+                                                    : groupedVisibleItems.map(
+                                                        (group) => group.category
+                                                    )
+                                            )
+                                        }
+                                        className="mt-2 text-xs font-bold text-orange-600 hover:text-orange-700"
+                                    >
+                                        {collapsedCategories.length > 0
+                                            ? "Expand all"
+                                            : "Collapse all"}
+                                    </button>
+                                )}
                             </div>
                         </div>
 
@@ -1175,13 +1657,20 @@ export default function ShoppingListPage() {
                                 {groupedVisibleItems.map(
                                     ({ category, items }) => (
                                         <div key={category}>
-                                            <div className="flex items-center gap-2 border-b border-zinc-100 bg-zinc-50 px-5 py-3 md:px-6">
-                                                <span className="text-lg">
-                                                    {
-                                                        CATEGORY_ICONS[
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    toggleCategory(category)
+                                                }
+                                                aria-expanded={
+                                                    !collapsedCategories.includes(
                                                         category
-                                                        ]
-                                                    }
+                                                    )
+                                                }
+                                                className="flex w-full items-center gap-2 border-b border-zinc-100 bg-zinc-50 px-5 py-3 text-left transition hover:bg-orange-50/60 md:px-6"
+                                            >
+                                                <span className="text-lg">
+                                                    {CATEGORY_ICONS[category]}
                                                 </span>
                                                 <h3 className="font-bold">
                                                     {category}
@@ -1189,9 +1678,32 @@ export default function ShoppingListPage() {
                                                 <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-zinc-500">
                                                     {items.length}
                                                 </span>
-                                            </div>
+                                                <span className="ml-auto text-xs font-semibold text-zinc-500">
+                                                    Rs.{" "}
+                                                    {items
+                                                        .reduce(
+                                                            (sum, entry) =>
+                                                                sum +
+                                                                (getEffectiveCost(
+                                                                    entry
+                                                                ) ?? 0),
+                                                            0
+                                                        )
+                                                        .toLocaleString()}
+                                                </span>
+                                                <span
+                                                    aria-hidden="true"
+                                                    className={`text-zinc-400 transition-transform duration-200 ${collapsedCategories.includes(category)
+                                                            ? "-rotate-90"
+                                                            : ""
+                                                        }`}
+                                                >
+                                                    ▾
+                                                </span>
+                                            </button>
 
-                                            {items.map((item) => {
+                                            {!collapsedCategories.includes(category) &&
+                                                items.map((item) => {
                                                 const isChecked =
                                                     checkedItems.includes(
                                                         item.id
@@ -1214,7 +1726,7 @@ export default function ShoppingListPage() {
                                                 return (
                                                     <div
                                                         key={item.id}
-                                                        className={`flex gap-3 border-b border-zinc-100 px-4 py-4 transition last:border-b-0 md:px-6 ${isChecked
+                                                        className={`flex flex-wrap items-start gap-x-3 gap-y-3 border-b border-zinc-100 px-4 py-4 transition last:border-b-0 md:px-6 ${isChecked
                                                                 ? "bg-zinc-50"
                                                                 : "hover:bg-orange-50/40"
                                                             }`}
@@ -1229,7 +1741,7 @@ export default function ShoppingListPage() {
                                                                     item.id
                                                                 )
                                                             }
-                                                            className="mt-1 h-5 w-5 shrink-0 accent-orange-600"
+                                                            className="mt-0.5 h-6 w-6 shrink-0 accent-orange-600 sm:mt-1 sm:h-5 sm:w-5"
                                                             aria-label={`Mark ${item.name} as purchased`}
                                                         />
 
@@ -1344,7 +1856,7 @@ export default function ShoppingListPage() {
                                                             )}
                                                         </div>
 
-                                                        <div className="flex shrink-0 items-start gap-2">
+                                                        <div className="flex w-full items-start justify-between gap-2 pl-9 sm:w-auto sm:shrink-0 sm:justify-start sm:pl-0">
                                                             <button
                                                                 type="button"
                                                                 onClick={() =>
@@ -1367,7 +1879,7 @@ export default function ShoppingListPage() {
                                                                     : "☆"}
                                                             </button>
 
-                                                            <div className="min-w-[150px] text-right">
+                                                            <div className="min-w-0 flex-1 text-right sm:min-w-[150px] sm:flex-none">
                                                                 {editingPriceId === item.id ? (
                                                                     <div className="flex flex-col items-end gap-2">
                                                                         <div className="flex items-center gap-2">
@@ -1513,82 +2025,199 @@ export default function ShoppingListPage() {
                 )}
 
                 {ingredientItems.length > 0 && (
-                    <section className="mt-5 grid gap-4 md:grid-cols-3">
-                        <div className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm">
-                            <p className="text-sm text-zinc-500">
-                                Estimated total
-                            </p>
-                            <p className="mt-1 text-xl font-bold">
-                                Rs. {totalCost.toLocaleString()}
-                            </p>
-                            <p className="mt-1 text-xs text-zinc-400">
-                                AI estimate + your manual prices
-                            </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm">
-                            <p className="text-sm text-zinc-500">
-                                Purchased value
-                            </p>
-                            <p className="mt-1 text-xl font-bold text-orange-600">
-                                Rs. {purchasedCost.toLocaleString()}
-                            </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm">
-                            <p className="text-sm text-zinc-500">
-                                Still to buy
-                            </p>
-                            <p className="mt-1 text-xl font-bold text-green-600">
-                                Rs. {remainingCost.toLocaleString()}
-                            </p>
-                        </div>
-                    </section>
+                    <p className="mt-5 text-center text-xs text-zinc-400">
+                        Prices are approximate and may vary by city, shop and
+                        season. Tap &quot;Add Price&quot; on any item to use
+                        your own price.
+                    </p>
                 )}
 
-                {ingredientItems.length > 0 && (
-                    <section className="mt-8 rounded-3xl bg-zinc-950 px-6 py-10 text-center text-white shadow-xl md:px-10">
-                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-400">
-                            LocalPlate AI
-                        </p>
-                        <h2 className="mt-3 text-3xl font-bold">
-                            Your shopping is organized.
-                        </h2>
-                        <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-zinc-400">
-                            Share the remaining list with family, finish
-                            your shopping, then create another personalized
-                            meal plan whenever you need one.
-                        </p>
+            </div>
 
-                        <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+            {/* Mobile quick bar */}
+            {totalItems > 0 && (
+                <div className="fixed inset-x-0 bottom-0 z-30 border-t border-orange-100 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.06)] backdrop-blur md:hidden">
+                    <div className="flex items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="font-bold text-zinc-800">
+                                    {purchasedItems}/{totalItems} done
+                                </span>
+                                <span className="truncate font-semibold text-green-600">
+                                    Rs. {remainingCost.toLocaleString()} left
+                                </span>
+                            </div>
+
+                            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-100">
+                                <div
+                                    className="h-full rounded-full bg-orange-600 transition-all duration-500"
+                                    style={{ width: `${progress}%` }}
+                                />
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={sendToWhatsApp}
+                            className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-green-600 px-4 text-sm font-bold text-white shadow-sm transition active:scale-95"
+                        >
+                            <span aria-hidden="true">↗</span>
+                            Share
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Toast */}
+            {toast && (
+                <div
+                    role="status"
+                    aria-live="polite"
+                    className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex justify-center px-4 md:bottom-6"
+                >
+                    <div
+                        key={toast.id}
+                        className={`sl-sheet pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-xl ${toast.tone === "error"
+                                ? "bg-red-600"
+                                : "bg-zinc-900"
+                            }`}
+                    >
+                        <span aria-hidden="true">
+                            {toast.tone === "error" ? "⚠️" : "✓"}
+                        </span>
+                        <span className="min-w-0 flex-1">{toast.message}</span>
+
+                        {toast.action && (
                             <button
                                 type="button"
-                                onClick={sendToWhatsApp}
-                                className="rounded-full bg-green-600 px-6 py-3 font-bold text-white hover:bg-green-700"
+                                onClick={() => {
+                                    toast.action?.run();
+                                }}
+                                className="shrink-0 rounded-full bg-white/15 px-3.5 py-1.5 text-xs font-bold transition hover:bg-white/25"
                             >
-                                📱 Share Remaining List
+                                {toast.action.label}
                             </button>
-                            <a
-                                href="/planner"
-                                className="rounded-full bg-orange-600 px-6 py-3 font-bold text-white hover:bg-orange-700"
-                            >
-                                Create New Meal →
-                            </a>
-                            <a
-                                href="/saved-plans"
-                                className="rounded-full border border-zinc-700 bg-zinc-900 px-6 py-3 font-bold text-white hover:bg-zinc-800"
-                            >
-                                View Saved Plans
-                            </a>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Clear list dialog (bottom sheet on mobile) */}
+            {showClearConfirm && (
+                <div
+                    className="sl-fade fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+                    onClick={() => {
+                        if (!clearing) setShowClearConfirm(false);
+                    }}
+                >
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="clear-list-title"
+                        aria-describedby="clear-list-desc"
+                        className="sl-sheet w-full max-w-md rounded-t-[2rem] bg-white px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl sm:rounded-3xl sm:pb-6 sm:pt-6"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-zinc-200 sm:hidden" />
+
+                        <div className="flex items-start gap-4">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-2xl">
+                                🗑️
+                            </div>
+
+                            <div className="min-w-0">
+                                <h3
+                                    id="clear-list-title"
+                                    className="text-xl font-bold text-zinc-900"
+                                >
+                                    Clear shopping list?
+                                </h3>
+                                <p
+                                    id="clear-list-desc"
+                                    className="mt-1 text-sm leading-6 text-zinc-500"
+                                >
+                                    Ye list aapke saare devices se hat jayegi.
+                                    Clear karne ke foran baad aap Undo kar
+                                    sakte ho.
+                                </p>
+                            </div>
                         </div>
 
-                        <p className="mt-5 text-xs text-zinc-500">
-                            Prices shown in the list are approximate and
-                            may vary by city, shop and season.
-                        </p>
-                    </section>
-                )}
-            </div>
+                        <div className="mt-5 grid grid-cols-3 gap-2">
+                            {[
+                                ["Items", String(totalItems)],
+                                ["Checked", String(purchasedItems)],
+                                ["Value", `Rs. ${totalCost.toLocaleString()}`],
+                            ].map(([label, value]) => (
+                                <div
+                                    key={label}
+                                    className="rounded-2xl bg-zinc-50 px-3 py-3 text-center"
+                                >
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                                        {label}
+                                    </p>
+                                    <p className="mt-1 truncate text-sm font-bold text-zinc-900">
+                                        {value}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+
+                        {clearError && (
+                            <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-xs font-medium leading-5 text-red-700">
+                                {clearError}
+                            </div>
+                        )}
+
+                        <div className="mt-6 flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setShowClearConfirm(false)}
+                                disabled={clearing}
+                                className="inline-flex min-h-12 items-center justify-center rounded-full border border-zinc-200 bg-white px-6 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {clearError ? "Close" : "Cancel"}
+                            </button>
+
+                            {!clearError && (
+                                <button
+                                    type="button"
+                                    onClick={clearShoppingList}
+                                    disabled={clearing}
+                                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-red-600 px-6 text-sm font-bold text-white shadow-sm transition hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {clearing ? (
+                                        <>
+                                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                                            Clearing...
+                                        </>
+                                    ) : (
+                                        "Yes, clear list"
+                                    )}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <style>{`
+                @keyframes sl-fade-in { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes sl-sheet-up {
+                    from { opacity: 0; transform: translateY(28px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes sl-pop {
+                    from { opacity: 0; transform: translateY(10px) scale(0.96); }
+                    to { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                .sl-fade { animation: sl-fade-in 0.2s ease-out both; }
+                .sl-sheet { animation: sl-sheet-up 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+                @media (min-width: 640px) { .sl-sheet { animation-name: sl-pop; } }
+                @media (prefers-reduced-motion: reduce) {
+                    .sl-fade, .sl-sheet { animation: none !important; }
+                }
+            `}</style>
         </main>
     );
 }
