@@ -1,1398 +1,597 @@
+import Link from "next/link";
+import QuickStart from "./components/QuickStart";
+
+const LOCAL_FOODS = [
+  "🍛 Daal & Rice",
+  "🍗 Chicken Karahi",
+  "🥔 Aloo Keema",
+  "🫓 Paratha",
+  "🥘 Biryani",
+  "🥣 Chana",
+  "🍳 Egg Omelette",
+  "🥗 Salad & Raita",
+];
+
+const FEATURES = [
+  {
+    icon: "🤖",
+    title: "AI Meal Planner",
+    text: "Personalized meals based on your taste, diet, goals and cooking time.",
+    href: "/planner",
+    cta: "Try the planner",
+    tone: "bg-orange-50 text-orange-700",
+  },
+  {
+    icon: "📅",
+    title: "Weekly Planning",
+    text: "A complete seven-day plan with breakfast, lunch and dinner in one go.",
+    href: "/weekly-plan",
+    cta: "Build a week",
+    tone: "bg-indigo-50 text-indigo-700",
+  },
+  {
+    icon: "🛒",
+    title: "Smart Shopping",
+    text: "Turn any plan into an organized grocery list with prices and categories.",
+    href: "/shopping-list",
+    cta: "Open shopping list",
+    tone: "bg-green-50 text-green-700",
+  },
+  {
+    icon: "💾",
+    title: "Saved Plans",
+    text: "Keep your favorite plans, reuse them in one tap and never start from zero.",
+    href: "/saved-plans",
+    cta: "View saved plans",
+    tone: "bg-amber-50 text-amber-700",
+  },
+  {
+    icon: "🍳",
+    title: "What Can I Cook?",
+    text: "Enter the ingredients you already have and discover practical meals you can cook with them.",
+    href: "/cook",
+    cta: "Find meals",
+    tone: "bg-orange-50 text-orange-700",
+  },
+];
+
+const STEPS = [
+  {
+    icon: "📝",
+    title: "Tell us what you need",
+    text: "Pick your budget, diet, goal and the ingredients you already have.",
+  },
+  {
+    icon: "🤖",
+    title: "AI builds your plan",
+    text: "Get meals that fit your day, your taste and your spending limit.",
+  },
+  {
+    icon: "🛒",
+    title: "Shop and cook",
+    text: "Save the plan, check off your shopping list and start cooking.",
+  },
+];
+
+const WEEK = [
+  { day: "Mon", lunch: "🍛 Chicken Curry", dinner: "🍚 Daal Rice" },
+  { day: "Tue", lunch: "🥣 Chana", dinner: "🍗 Chicken Pulao" },
+  { day: "Wed", lunch: "🍳 Omelette", dinner: "🥘 Aloo Keema" },
+  { day: "Thu", lunch: "🥞 Paratha", dinner: "🍛 Chicken Karahi" },
+];
+
+const FAQS = [
+  {
+    question: "Is LocalPlate AI made for Pakistani food?",
+    answer:
+      "Yes. Plans focus on familiar Pakistani and South Asian meals and ingredients that are easy to find, but you can choose any food style you like.",
+  },
+  {
+    question: "Can I plan around my budget?",
+    answer:
+      "Absolutely. Set your budget first and the plan, estimated prices and shopping list are built around it. You can also edit prices with your own numbers.",
+  },
+  {
+    question: "Can I use ingredients I already have?",
+    answer:
+      "Yes. Add your pantry items and LocalPlate AI reuses them across meals to reduce waste and spending.",
+  },
+  {
+    question: "Are my saved plans and shopping list kept safe?",
+    answer:
+      "When you are signed in, your plans and shopping list are stored in your account so you can open them again on any device.",
+  },
+];
+
+const FOOTER_LINKS = [
+  { href: "/", label: "Home" },
+  { href: "/planner", label: "Planner" },
+  { href: "/weekly-plan", label: "Weekly Plan" },
+  { href: "/saved-plans", label: "Saved Plans" },
+  { href: "/shopping-list", label: "Shopping List" },
+  { href: "/cook", label: "What Can I Cook?" },
+];
+
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[#fffaf5] text-zinc-900">
-
-      {/* =========================================================
-          HERO
-      ========================================================== */}
-
+    <main className="min-h-screen overflow-x-clip bg-[#fffaf5] pb-24 text-zinc-900 md:pb-0">
+      {/* HERO */}
       <section className="relative">
-        {/* Background decoration */}
+        <div className="pointer-events-none absolute -left-32 top-10 -z-10 size-80 rounded-full bg-orange-200/30 blur-3xl" />
+        <div className="pointer-events-none absolute right-0 top-0 -z-10 size-120 rounded-full bg-amber-100/40 blur-3xl" />
 
-        <div className="pointer-events-none absolute -left-32 top-10 -z-10 h-80 w-80 rounded-full bg-orange-200/30 blur-3xl" />
-
-        <div className="pointer-events-none absolute right-0 top-0 -z-10 h-[30rem] w-[30rem] rounded-full bg-amber-100/40 blur-3xl" />
-
-        <div className="mx-auto grid min-w-0 max-w-7xl items-center gap-14 px-6 pb-20 pt-16 md:px-12 md:pb-28 md:pt-24 lg:grid-cols-[0.95fr_1.05fr]">
-
-          {/* LEFT */}
-
+        <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 pb-16 pt-12 sm:px-8 md:pb-24 md:pt-20 lg:grid-cols-[0.95fr_1.05fr] lg:gap-14">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-white px-4 py-2 text-sm font-semibold text-orange-700 shadow-sm">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-100">
+              <span className="flex size-6 items-center justify-center rounded-full bg-orange-100">
                 ✨
               </span>
-
               AI-powered meal planning
             </div>
 
-            <h1 className="mt-7 max-w-3xl text-5xl font-black leading-[1.02] tracking-tight md:text-6xl lg:text-7xl">
+            <h1 className="mt-6 text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-7xl">
               Eat better.
               <br />
               Spend smarter.
               <br />
-              <span className="text-orange-600">
-                Plan with AI.
-              </span>
+              <span className="text-orange-600">Plan with AI.</span>
             </h1>
 
-            <p className="mt-7 max-w-xl text-lg leading-8 text-zinc-600 md:text-xl">
-              LocalPlate AI turns your budget, taste, diet, goals and pantry
-              ingredients into practical meal plans made for everyday life.
+            <p className="mt-6 max-w-xl text-lg leading-8 text-zinc-600">
+              LocalPlate AI turns your budget, taste, diet and pantry into
+              practical meal plans made for everyday life.
             </p>
 
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <a
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link
                 href="/planner"
-                className="group inline-flex items-center justify-center rounded-full bg-orange-600 px-7 py-4 font-bold text-white shadow-xl shadow-orange-200 transition hover:-translate-y-1 hover:bg-orange-700"
+                className="group inline-flex min-h-14 items-center justify-center rounded-full bg-orange-600 px-8 font-bold text-white shadow-xl shadow-orange-200 transition hover:-translate-y-0.5 hover:bg-orange-700 active:scale-95"
               >
                 Create My Meal Plan
-                <span className="ml-2 transition-transform group-hover:translate-x-1">
+                <span
+                  aria-hidden="true"
+                  className="ml-2 transition-transform group-hover:translate-x-1"
+                >
                   →
                 </span>
-              </a>
+              </Link>
 
-              <a
+              <Link
                 href="/weekly-plan"
-                className="inline-flex items-center justify-center rounded-full border border-zinc-200 bg-white px-7 py-4 font-bold text-zinc-800 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 hover:bg-orange-50"
+                className="inline-flex min-h-14 items-center justify-center rounded-full border border-zinc-200 bg-white px-8 font-bold text-zinc-800 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 hover:bg-orange-50 active:scale-95"
               >
                 📅 Build My Week
-              </a>
+              </Link>
+
+              <Link
+                href="/cook"
+                className="inline-flex min-h-14 items-center justify-center rounded-full border border-orange-200 bg-orange-50 px-7 font-bold text-orange-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-orange-100 active:scale-95"
+              >
+                🍳 What Can I Cook?
+              </Link>
             </div>
 
-            {/* Trust */}
-
-            <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm text-zinc-500">
-              <span className="flex items-center gap-2">
-                <span className="font-bold text-green-600">✓</span>
-                Budget focused
-              </span>
-
-              <span className="flex items-center gap-2">
-                <span className="font-bold text-green-600">✓</span>
-                Local ingredients
-              </span>
-
-              <span className="flex items-center gap-2">
-                <span className="font-bold text-green-600">✓</span>
-                Personalized
-              </span>
-            </div>
+            <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-zinc-500">
+              {["Budget focused", "Local ingredients", "Free to start"].map(
+                (item) => (
+                  <li key={item} className="flex items-center gap-2">
+                    <span className="font-bold text-green-600">✓</span>
+                    {item}
+                  </li>
+                )
+              )}
+            </ul>
           </div>
 
-          {/* =====================================================
-              HERO PRODUCT PREVIEW
-          ====================================================== */}
-
-          <div className="relative min-w-0 w-full">
-
-            {/* Floating notification */}
-
-            <div className="absolute -right-2 top-4 z-20 hidden rounded-2xl border border-zinc-100 bg-white p-4 shadow-xl md:block lg:-right-8">
+          {/* Product preview */}
+          <div className="relative">
+            <div className="absolute -right-2 top-6 z-20 hidden rounded-2xl border border-zinc-100 bg-white p-4 shadow-xl md:block lg:-right-6">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-xl">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-green-50 text-lg">
                   ✓
                 </div>
-
                 <div>
-                  <p className="text-sm font-bold">
-                    Budget matched
-                  </p>
-
-                  <p className="text-xs text-zinc-400">
-                    Your plan fits Rs. 7,000
-                  </p>
+                  <p className="text-sm font-bold">Budget matched</p>
+                  <p className="text-xs text-zinc-400">Fits Rs. 7,000</p>
                 </div>
               </div>
             </div>
 
-            {/* Main dashboard */}
-
-            <div className="relative box-border w-full min-w-0 max-w-full rounded-[2rem] border border-zinc-200 bg-white p-4 shadow-2xl shadow-orange-100 md:p-6">
-
-              {/* Dashboard header */}
-
-              <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zinc-100 pb-5">
-
+            <div className="rounded-4xl border border-zinc-200 bg-white p-4 shadow-2xl shadow-orange-100 sm:p-6">
+              <div className="flex items-center justify-between gap-3 border-b border-zinc-100 pb-4">
                 <div className="flex min-w-0 items-center gap-3">
-
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-100 text-xl">
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-orange-100 text-xl">
                     🍽️
                   </div>
-
                   <div className="min-w-0">
-                    <p className="truncate font-bold">
-                      Your Meal Dashboard
-                    </p>
-
+                    <p className="truncate font-bold">Your Meal Dashboard</p>
                     <p className="truncate text-xs text-zinc-400">
                       Personalized by LocalPlate AI
                     </p>
                   </div>
-
                 </div>
 
-                <div className="shrink-0 rounded-full bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700">
-                  ● AI Ready
-                </div>
-
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700">
+                  <span className="size-1.5 animate-pulse rounded-full bg-green-500" />
+                  AI Ready
+                </span>
               </div>
 
-              {/* Profile */}
+              <div className="mt-4 rounded-2xl bg-zinc-950 p-5 text-white">
+                <p className="text-xs font-semibold uppercase tracking-wider text-orange-400">
+                  Today
+                </p>
+                <h2 className="mt-1.5 text-xl font-bold sm:text-2xl">
+                  Balanced Pakistani Meals
+                </h2>
 
-              <div className="mt-5 min-w-0 rounded-2xl bg-zinc-950 p-5 text-white">
-
-                <div className="flex min-w-0 items-start justify-between gap-5">
-
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-orange-400">
-                      Today&apos;s plan
-                    </p>
-
-                    <h2 className="mt-2 break-words text-2xl font-bold">
-                      Balanced Pakistani Meals
-                    </h2>
-
-                    <p className="mt-2 break-words text-sm text-zinc-400">
-                      Designed around your budget and preferences.
-                    </p>
-                  </div>
-
-                  <div className="hidden shrink-0 text-4xl sm:block">
-                    🥘
-                  </div>
-
-                </div>
-
-                <div className="mt-5 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3">
-
-                  <div className="min-w-0 rounded-xl bg-white/10 p-3">
-                    <p className="text-[10px] uppercase text-zinc-500">
-                      Budget
-                    </p>
-
-                    <p className="mt-1 truncate text-sm font-bold">
-                      Rs. 7,000
-                    </p>
-                  </div>
-
-                  <div className="min-w-0 rounded-xl bg-white/10 p-3">
-                    <p className="text-[10px] uppercase text-zinc-500">
-                      Servings
-                    </p>
-
-                    <p className="mt-1 truncate text-sm font-bold">
-                      2 People
-                    </p>
-                  </div>
-
-                  <div className="min-w-0 rounded-xl bg-white/10 p-3">
-                    <p className="text-[10px] uppercase text-zinc-500">
-                      Goal
-                    </p>
-
-                    <p className="mt-1 truncate text-sm font-bold">
-                      Healthy
-                    </p>
-                  </div>
-
-                </div>
-              </div>
-
-              {/* Meals */}
-
-              <div className="mt-5 min-w-0">
-
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-bold">
-                    Today&apos;s meals
-                  </h3>
-
-                  <span className="shrink-0 text-xs font-semibold text-orange-600">
-                    3 meals
-                  </span>
-                </div>
-
-                <div className="mt-3 space-y-3">
-
-                  {/* Breakfast */}
-
-                  <div className="flex min-w-0 items-center gap-4 rounded-2xl border border-zinc-100 bg-[#fffaf5] p-4">
-
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-2xl">
-                      🍳
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  {[
+                    ["Budget", "Rs. 7,000"],
+                    ["People", "2"],
+                    ["Goal", "Healthy"],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-xl bg-white/10 p-3">
+                      <p className="text-[10px] uppercase text-zinc-400">
+                        {label}
+                      </p>
+                      <p className="mt-1 truncate text-sm font-bold">
+                        {value}
+                      </p>
                     </div>
+                  ))}
+                </div>
+              </div>
 
+              <ul className="mt-4 space-y-2.5">
+                {[
+                  ["🍳", "Breakfast", "Egg Paratha", "Rs. 180"],
+                  ["🍛", "Lunch", "Chicken Curry", "Rs. 420"],
+                  ["🍚", "Dinner", "Daal Rice", "Rs. 240"],
+                ].map(([icon, meal, name, price]) => (
+                  <li
+                    key={meal}
+                    className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/60 p-3"
+                  >
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white text-xl shadow-sm">
+                      {icon}
+                    </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-zinc-400">
-                        Breakfast
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                        {meal}
                       </p>
-
-                      <p className="mt-0.5 truncate font-bold">
-                        Egg Paratha & Yogurt
-                      </p>
+                      <p className="truncate text-sm font-bold">{name}</p>
                     </div>
+                    <span className="shrink-0 text-sm font-bold text-green-600">
+                      {price}
+                    </span>
+                  </li>
+                ))}
+              </ul>
 
-                    <div className="shrink-0 text-right">
-                      <p className="text-xs text-zinc-400">
-                        Cost
-                      </p>
-
-                      <p className="text-sm font-bold">
-                        Rs. 180
-                      </p>
-                    </div>
-
-                  </div>
-
-                  {/* Lunch */}
-
-                  <div className="flex min-w-0 items-center gap-4 rounded-2xl border border-zinc-100 bg-[#fffaf5] p-4">
-
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-green-100 text-2xl">
-                      🍛
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-zinc-400">
-                        Lunch
-                      </p>
-
-                      <p className="mt-0.5 truncate font-bold">
-                        Chicken Karahi & Roti
-                      </p>
-                    </div>
-
-                    <div className="shrink-0 text-right">
-                      <p className="text-xs text-zinc-400">
-                        Cost
-                      </p>
-
-                      <p className="text-sm font-bold">
-                        Rs. 520
-                      </p>
-                    </div>
-
-                  </div>
-
-                  {/* Dinner */}
-
-                  <div className="flex min-w-0 items-center gap-4 rounded-2xl border border-zinc-100 bg-[#fffaf5] p-4">
-
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-2xl">
-                      🍚
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-zinc-400">
-                        Dinner
-                      </p>
-
-                      <p className="mt-0.5 truncate font-bold">
-                        Daal Rice & Salad
-                      </p>
-                    </div>
-
-                    <div className="shrink-0 text-right">
-                      <p className="text-xs text-zinc-400">
-                        Cost
-                      </p>
-
-                      <p className="text-sm font-bold">
-                        Rs. 260
-                      </p>
-                    </div>
-
-                  </div>
-
-                </div>
+              <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-green-50 px-4 py-3">
+                <span className="text-sm font-semibold text-green-800">
+                  🛒 18 ingredients ready
+                </span>
+                <span className="text-sm font-bold text-green-700">
+                  Rs. 1,540 left
+                </span>
               </div>
-
-              {/* Budget */}
-
-              <div className="mt-5 min-w-0 rounded-2xl border border-zinc-100 bg-zinc-50 p-4">
-
-                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <span className="font-semibold">
-                    Weekly budget
-                  </span>
-
-                  <span className="font-bold text-orange-600">
-                    Rs. 5,460 / 7,000
-                  </span>
-                </div>
-
-                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-zinc-200">
-                  <div className="h-full w-[78%] rounded-full bg-orange-600" />
-                </div>
-
-                <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-zinc-400">
-                  <span>Used 78%</span>
-                  <span>Rs. 1,540 remaining</span>
-                </div>
-
-              </div>
-
             </div>
-
-            {/* Floating shopping card */}
-
-            <div className="absolute -bottom-7 -left-4 z-20 hidden rounded-2xl border border-zinc-100 bg-white p-4 shadow-xl md:block lg:-left-8">
-
-              <div className="flex items-center gap-3">
-
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-100 text-xl">
-                  🛒
-                </div>
-
-                <div>
-                  <p className="text-sm font-bold">
-                    Shopping List
-                  </p>
-
-                  <p className="text-xs text-zinc-400">
-                    18 ingredients ready
-                  </p>
-                </div>
-
-              </div>
-
-            </div>
-
           </div>
         </div>
       </section>
 
-      {/* =========================================================
-          QUICK STATS
-      ========================================================== */}
-
-      <section className="border-y border-zinc-200 bg-white">
-
-        <div className="mx-auto grid max-w-6xl grid-cols-2 divide-x divide-y divide-zinc-200 md:grid-cols-4 md:divide-y-0">
-
-          <div className="px-5 py-7 text-center">
-            <p className="text-3xl font-black text-orange-600">
-              7
-            </p>
-
-            <p className="mt-1 text-sm text-zinc-500">
-              Days planned
-            </p>
-          </div>
-
-          <div className="px-5 py-7 text-center">
-            <p className="text-3xl font-black">
-              AI
-            </p>
-
-            <p className="mt-1 text-sm text-zinc-500">
-              Personalized planning
-            </p>
-          </div>
-
-          <div className="px-5 py-7 text-center">
-            <p className="text-3xl font-black">
-              Local
-            </p>
-
-            <p className="mt-1 text-sm text-zinc-500">
-              Food-first approach
-            </p>
-          </div>
-
-          <div className="px-5 py-7 text-center">
-            <p className="text-3xl font-black text-orange-600">
-              Rs.
-            </p>
-
-            <p className="mt-1 text-sm text-zinc-500">
-              Budget aware
-            </p>
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* =========================================================
-          FEATURES
-      ========================================================== */}
-
+      {/* LOCAL FOOD STRIP */}
       <section
-        id="features"
-        aria-labelledby="features-heading"
-        className="mx-auto max-w-7xl px-6 py-24 md:px-12"
+        aria-label="Popular local meals"
+        className="border-y border-orange-100 bg-white py-5"
       >
+        <div className="mx-auto flex max-w-7xl gap-3 overflow-x-auto px-5 sm:px-8 lg:justify-center">
+          {LOCAL_FOODS.map((food) => (
+            <span
+              key={food}
+              className="shrink-0 rounded-full border border-orange-100 bg-orange-50/60 px-4 py-2 text-sm font-semibold text-zinc-700"
+            >
+              {food}
+            </span>
+          ))}
+        </div>
 
-        <div className="mx-auto max-w-3xl text-center">
-
-          <p className="font-semibold uppercase tracking-[0.15em] text-orange-600">
-            One smart food assistant
-          </p>
-
-          <h2
-            id="features-heading"
-            className="mt-4 text-4xl font-black tracking-tight md:text-5xl"
+        <div className="mx-auto mt-4 flex max-w-7xl justify-center px-5 sm:px-8">
+          <Link
+            href="/cook"
+            className="inline-flex items-center font-bold text-orange-600 transition hover:text-orange-700"
           >
-            Everything you need to plan meals better
-          </h2>
+            See what you can cook
+            <span className="ml-2">→</span>
+          </Link>
+        </div>
+      </section>
 
-          <p className="mt-5 text-lg leading-8 text-zinc-600">
-            From your first meal idea to your final shopping list, LocalPlate
-            AI keeps your food planning in one place.
+      {/* QUICK START */}
+      <section className="mx-auto max-w-5xl px-5 py-16 sm:px-8 md:py-24">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-bold uppercase tracking-widest text-orange-600">
+            Quick start
           </p>
-
+          <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+            Your first plan in ten seconds
+          </h2>
+          <p className="mt-3 text-zinc-600">
+            Pick your basics and we will open the planner already filled in.
+          </p>
         </div>
 
-        <div className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-
-          <article className="group rounded-3xl border border-zinc-100 bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-orange-100">
-
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 text-2xl transition group-hover:scale-110">
-              🤖
-            </div>
-
-            <h3 className="mt-6 text-xl font-bold">
-              AI Meal Planner
-            </h3>
-
-            <p className="mt-3 leading-7 text-zinc-600">
-              Personalized meals based on your taste, diet, goals, cooking
-              time and preferences.
-            </p>
-
-            <a
-              href="/planner"
-              className="mt-5 inline-block text-sm font-bold text-orange-600"
-            >
-              Try planner →
-            </a>
-
-          </article>
-
-          <article className="group rounded-3xl border border-zinc-100 bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-orange-100">
-
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-100 text-2xl transition group-hover:scale-110">
-              💰
-            </div>
-
-            <h3 className="mt-6 text-xl font-bold">
-              Budget Control
-            </h3>
-
-            <p className="mt-3 leading-7 text-zinc-600">
-              Plan meals around your available budget and keep food spending
-              organized.
-            </p>
-
-            <a
-              href="/planner"
-              className="mt-5 inline-block text-sm font-bold text-orange-600"
-            >
-              Plan by budget →
-            </a>
-
-          </article>
-
-          <article className="group rounded-3xl border border-zinc-100 bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-orange-100">
-
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100 text-2xl transition group-hover:scale-110">
-              🛒
-            </div>
-
-            <h3 className="mt-6 text-xl font-bold">
-              Smart Shopping
-            </h3>
-
-            <p className="mt-3 leading-7 text-zinc-600">
-              Turn your generated meal plan into an organized grocery
-              shopping list.
-            </p>
-
-            <a
-              href="/shopping-list"
-              className="mt-5 inline-block text-sm font-bold text-orange-600"
-            >
-              View shopping →
-            </a>
-
-          </article>
-
-          <article className="group rounded-3xl border border-zinc-100 bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-orange-100">
-
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-2xl transition group-hover:scale-110">
-              📅
-            </div>
-
-            <h3 className="mt-6 text-xl font-bold">
-              Weekly Planning
-            </h3>
-
-            <p className="mt-3 leading-7 text-zinc-600">
-              Generate a complete seven-day plan with breakfast, lunch and
-              dinner.
-            </p>
-
-            <a
-              href="/weekly-plan"
-              className="mt-5 inline-block text-sm font-bold text-orange-600"
-            >
-              Build a week →
-            </a>
-
-          </article>
-
+        <div className="mt-10">
+          <QuickStart />
         </div>
       </section>
 
-      {/* =========================================================
-          PERSONALIZATION
-      ========================================================== */}
-
-      <section className="bg-zinc-950 px-6 py-24 text-white md:px-12">
-
-        <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-2">
-
-          <div>
-
-            <p className="font-semibold uppercase tracking-[0.15em] text-orange-500">
-              Personalization that matters
+      {/* FEATURES */}
+      <section className="bg-white py-16 md:py-24">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-sm font-bold uppercase tracking-widest text-orange-600">
+              One smart food assistant
             </p>
-
-            <h2 className="mt-4 text-4xl font-black leading-tight md:text-5xl">
-              Your meal plan should know
-              <span className="text-orange-500">
-                {" "}you.
-              </span>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+              Everything you need to plan meals better
             </h2>
-
-            <p className="mt-6 max-w-xl text-lg leading-8 text-zinc-400">
-              LocalPlate AI combines the details that actually affect what
-              you cook — your budget, ingredients, diet, goals, taste and
-              available time.
-            </p>
-
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
-
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-                <span className="text-2xl">💸</span>
-
-                <p className="mt-3 font-bold">
-                  Your budget
-                </p>
-
-                <p className="mt-1 text-sm text-zinc-500">
-                  Spend according to your limits.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-                <span className="text-2xl">🥗</span>
-
-                <p className="mt-3 font-bold">
-                  Your diet
-                </p>
-
-                <p className="mt-1 text-sm text-zinc-500">
-                  Plan around your food preferences.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-                <span className="text-2xl">🧺</span>
-
-                <p className="mt-3 font-bold">
-                  Your pantry
-                </p>
-
-                <p className="mt-1 text-sm text-zinc-500">
-                  Use what you already have.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-                <span className="text-2xl">⏰</span>
-
-                <p className="mt-3 font-bold">
-                  Your time
-                </p>
-
-                <p className="mt-1 text-sm text-zinc-500">
-                  Choose meals that fit your routine.
-                </p>
-              </div>
-
-            </div>
-
           </div>
 
-          {/* Preference visual */}
-
-          <div className="rounded-[2rem] border border-zinc-800 bg-zinc-900 p-5 md:p-7">
-
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-5">
-
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-orange-500">
-                  AI understands
-                </p>
-
-                <h3 className="mt-1 text-xl font-bold">
-                  Your preferences
-                </h3>
-              </div>
-
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-600">
-                ✨
-              </div>
-
-            </div>
-
-            <div className="mt-6 space-y-4">
-
-              <div>
-                <div className="mb-2 flex justify-between text-sm">
-                  <span className="text-zinc-400">
-                    Budget
-                  </span>
-
-                  <span className="font-semibold text-white">
-                    Rs. 7,000
-                  </span>
-                </div>
-
-                <div className="h-2 rounded-full bg-zinc-800">
-                  <div className="h-full w-[72%] rounded-full bg-orange-600" />
-                </div>
-              </div>
-
-              <div className="rounded-2xl bg-zinc-800/70 p-4">
-
-                <p className="text-xs text-zinc-500">
-                  Food preference
-                </p>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-
-                  <span className="rounded-full bg-orange-600 px-3 py-1.5 text-xs font-bold">
-                    Pakistani
-                  </span>
-
-                  <span className="rounded-full bg-zinc-700 px-3 py-1.5 text-xs font-semibold">
-                    Homemade
-                  </span>
-
-                  <span className="rounded-full bg-zinc-700 px-3 py-1.5 text-xs font-semibold">
-                    Less Oil
-                  </span>
-
-                </div>
-
-              </div>
-
-              <div className="rounded-2xl bg-zinc-800/70 p-4">
-
-                <p className="text-xs text-zinc-500">
-                  Pantry available
-                </p>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-
-                  <span className="rounded-full bg-zinc-700 px-3 py-1.5 text-xs font-semibold">
-                    Rice
-                  </span>
-
-                  <span className="rounded-full bg-zinc-700 px-3 py-1.5 text-xs font-semibold">
-                    Daal
-                  </span>
-
-                  <span className="rounded-full bg-zinc-700 px-3 py-1.5 text-xs font-semibold">
-                    Potatoes
-                  </span>
-
-                  <span className="rounded-full bg-zinc-700 px-3 py-1.5 text-xs font-semibold">
-                    Spices
-                  </span>
-
-                </div>
-
-              </div>
-
-              <div className="rounded-2xl border border-green-900/50 bg-green-950/30 p-4">
-
-                <div className="flex gap-3">
-
-                  <span className="text-xl">
-                    ✓
-                  </span>
-
-                  <div>
-                    <p className="font-bold">
-                      AI plan optimized
-                    </p>
-
-                    <p className="mt-1 text-sm text-zinc-500">
-                      Meals match your preferences and budget.
-                    </p>
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-      </section>
-
-      {/* =========================================================
-          LOCAL FOOD
-      ========================================================== */}
-
-      <section className="mx-auto max-w-7xl px-6 py-24 md:px-12">
-
-        <div className="grid items-center gap-12 lg:grid-cols-2">
-
-          <div className="order-2 lg:order-1">
-
-            <div className="grid grid-cols-2 gap-4">
-
-              <div className="rounded-[2rem] border border-zinc-100 bg-white p-6 shadow-sm">
-
-                <div className="text-5xl">
-                  🍛
-                </div>
-
-                <h3 className="mt-5 font-bold">
-                  Daal & Rice
-                </h3>
-
-                <p className="mt-2 text-sm leading-6 text-zinc-500">
-                  Simple everyday comfort food.
-                </p>
-
-              </div>
-
-              <div className="mt-8 rounded-[2rem] border border-zinc-100 bg-white p-6 shadow-sm">
-
-                <div className="text-5xl">
-                  🍗
-                </div>
-
-                <h3 className="mt-5 font-bold">
-                  Chicken Meals
-                </h3>
-
-                <p className="mt-2 text-sm leading-6 text-zinc-500">
-                  Practical family-friendly options.
-                </p>
-
-              </div>
-
-              <div className="rounded-[2rem] border border-zinc-100 bg-white p-6 shadow-sm">
-
-                <div className="text-5xl">
-                  🥔
-                </div>
-
-                <h3 className="mt-5 font-bold">
-                  Pantry Staples
-                </h3>
-
-                <p className="mt-2 text-sm leading-6 text-zinc-500">
-                  Ingredients you already have.
-                </p>
-
-              </div>
-
-              <div className="mt-8 rounded-[2rem] border border-zinc-100 bg-white p-6 shadow-sm">
-
-                <div className="text-5xl">
-                  🥗
-                </div>
-
-                <h3 className="mt-5 font-bold">
-                  Balanced Meals
-                </h3>
-
-                <p className="mt-2 text-sm leading-6 text-zinc-500">
-                  Meals around your goals.
-                </p>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          <div className="order-1 lg:order-2">
-
-            <p className="font-semibold uppercase tracking-[0.15em] text-orange-600">
-              Local food. Real life.
-            </p>
-
-            <h2 className="mt-4 text-4xl font-black leading-tight md:text-5xl">
-              Made for the food you actually cook.
-            </h2>
-
-            <p className="mt-6 text-lg leading-8 text-zinc-600">
-              LocalPlate AI focuses on practical Pakistani and South Asian
-              meals using familiar ingredients that are easier to find,
-              understand and cook.
-            </p>
-
-            <p className="mt-5 text-lg leading-8 text-zinc-600">
-              Whether you are cooking daal, rice, vegetables, chicken,
-              paratha or something completely different, your plan starts
-              with your preferences.
-            </p>
-
-            <a
-              href="/planner"
-              className="mt-7 inline-flex items-center font-bold text-orange-600"
-            >
-              Create a local meal plan
-              <span className="ml-2">
-                →
-              </span>
-            </a>
-
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* =========================================================
-          WEEKLY PLANNER PREVIEW
-      ========================================================== */}
-
-      <section className="bg-orange-50 px-6 py-24 md:px-12">
-
-        <div className="mx-auto max-w-7xl">
-
-          <div className="grid items-center gap-12 lg:grid-cols-[0.8fr_1.2fr]">
-
-            <div>
-
-              <p className="font-semibold uppercase tracking-[0.15em] text-orange-600">
-                Plan ahead
-              </p>
-
-              <h2 className="mt-4 text-4xl font-black leading-tight md:text-5xl">
-                One week.
-                <br />
-                One smart plan.
-              </h2>
-
-              <p className="mt-6 text-lg leading-8 text-zinc-600">
-                Stop deciding what to cook every morning. Build your whole
-                week around your budget, diet and preferences.
-              </p>
-
-              <a
-                href="/weekly-plan"
-                className="mt-7 inline-flex rounded-full bg-orange-600 px-6 py-3 font-bold text-white shadow-lg shadow-orange-200 transition hover:bg-orange-700"
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {FEATURES.map((feature) => (
+              <Link
+                key={feature.title}
+                href={feature.href}
+                className="group flex flex-col rounded-3xl border border-zinc-100 bg-[#fffaf5] p-6 transition hover:-translate-y-1 hover:border-orange-200 hover:shadow-xl hover:shadow-orange-100/60"
               >
-                Build Weekly Plan →
-              </a>
-
-            </div>
-
-            {/* Week cards */}
-
-            <div className="min-w-0 rounded-[2rem] border border-orange-100 bg-white p-5 shadow-xl shadow-orange-100 md:p-7">
-
-              <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zinc-100 pb-5">
-
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-orange-600">
-                    Weekly plan
-                  </p>
-
-                  <h3 className="mt-1 truncate text-xl font-bold">
-                    This week&apos;s meals
-                  </h3>
-                </div>
-
-                <span className="shrink-0 rounded-full bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700">
-                  Budget OK
+                <span
+                  className={`flex size-12 items-center justify-center rounded-2xl text-2xl ${feature.tone}`}
+                >
+                  {feature.icon}
                 </span>
 
-              </div>
+                <h3 className="mt-5 text-lg font-bold">{feature.title}</h3>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <p className="mt-2 flex-1 text-sm leading-6 text-zinc-600">
+                  {feature.text}
+                </p>
 
-                {[
-                  ["Mon", "🍳 Egg Paratha", "🍛 Chicken Curry"],
-                  ["Tue", "🥣 Chana", "🍚 Daal Rice"],
-                  ["Wed", "🍳 Omelette", "🍗 Chicken Pulao"],
-                  ["Thu", "🥞 Paratha", "🥘 Aloo Keema"],
-                  ["Fri", "🥣 Daal", "🍛 Chicken Karahi"],
-                  ["Sat", "🍳 Eggs", "🍚 Biryani"],
-                ].map(([day, lunch, dinner]) => (
-                  <div
-                    key={day}
-                    className="min-w-0 rounded-2xl border border-zinc-100 p-4"
+                <span className="mt-5 text-sm font-bold text-orange-600">
+                  {feature.cta}{" "}
+                  <span
+                    aria-hidden="true"
+                    className="inline-block transition-transform group-hover:translate-x-1"
                   >
-
-                    <div className="flex items-center justify-between">
-                      <p className="font-bold">
-                        {day}
-                      </p>
-
-                      <span className="text-xs text-zinc-400">
-                        2 meals
-                      </span>
-                    </div>
-
-                    <p className="mt-3 truncate text-sm text-zinc-600">
-                      {lunch}
-                    </p>
-
-                    <p className="mt-2 truncate text-sm font-semibold text-zinc-800">
-                      {dinner}
-                    </p>
-
-                  </div>
-                ))}
-
-              </div>
-
-              <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-zinc-50 p-4">
-
-                <div>
-                  <p className="text-xs text-zinc-400">
-                    Estimated weekly cost
-                  </p>
-
-                  <p className="mt-1 text-lg font-black">
-                    Rs. 6,420
-                  </p>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-xs text-zinc-400">
-                    Budget
-                  </p>
-
-                  <p className="mt-1 font-bold text-green-600">
-                    Rs. 7,000
-                  </p>
-                </div>
-
-              </div>
-
-            </div>
-
+                    →
+                  </span>
+                </span>
+              </Link>
+            ))}
           </div>
-
         </div>
-
       </section>
 
-      {/* =========================================================
-          HOW IT WORKS
-      ========================================================== */}
-
-      <section
-        id="how-it-works"
-        className="mx-auto max-w-7xl px-6 py-24 md:px-12"
-      >
-
-        <div className="mx-auto max-w-3xl text-center">
-
-          <p className="font-semibold uppercase tracking-[0.15em] text-orange-600">
+      {/* HOW IT WORKS */}
+      <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 md:py-24">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-bold uppercase tracking-widest text-orange-600">
             Simple by design
           </p>
-
-          <h2 className="mt-4 text-4xl font-black md:text-5xl">
+          <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
             From preferences to plate
           </h2>
-
         </div>
 
-        <div className="mt-14 grid gap-6 md:grid-cols-3">
+        <ol className="mt-12 grid gap-4 md:grid-cols-3">
+          {STEPS.map((step, index) => (
+            <li
+              key={step.title}
+              className="relative rounded-3xl border border-zinc-100 bg-white p-6 shadow-sm"
+            >
+              <div className="flex items-center justify-between">
+                <span className="flex size-12 items-center justify-center rounded-2xl bg-orange-50 text-2xl">
+                  {step.icon}
+                </span>
 
-          <article className="rounded-3xl border border-zinc-100 bg-white p-8 shadow-sm">
+                <span className="text-5xl font-black text-orange-100">
+                  {index + 1}
+                </span>
+              </div>
 
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-orange-600 text-lg font-black text-white">
-              1
-            </div>
+              <h3 className="mt-5 text-lg font-bold">{step.title}</h3>
 
-            <div className="mt-6 text-4xl">
-              📝
-            </div>
-
-            <h3 className="mt-4 text-xl font-bold">
-              Tell us what you need
-            </h3>
-
-            <p className="mt-3 leading-7 text-zinc-600">
-              Enter your budget, diet, goals, servings, pantry ingredients
-              and food preferences.
-            </p>
-
-          </article>
-
-          <article className="rounded-3xl border border-zinc-100 bg-white p-8 shadow-sm">
-
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-orange-600 text-lg font-black text-white">
-              2
-            </div>
-
-            <div className="mt-6 text-4xl">
-              🤖
-            </div>
-
-            <h3 className="mt-4 text-xl font-bold">
-              AI builds your plan
-            </h3>
-
-            <p className="mt-3 leading-7 text-zinc-600">
-              LocalPlate AI combines your preferences into meals that fit
-              your everyday needs.
-            </p>
-
-          </article>
-
-          <article className="rounded-3xl border border-zinc-100 bg-white p-8 shadow-sm">
-
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-orange-600 text-lg font-black text-white">
-              3
-            </div>
-
-            <div className="mt-6 text-4xl">
-              🛒
-            </div>
-
-            <h3 className="mt-4 text-xl font-bold">
-              Shop and cook
-            </h3>
-
-            <p className="mt-3 leading-7 text-zinc-600">
-              Save your plan, organize your shopping list and start cooking.
-            </p>
-
-          </article>
-
-        </div>
-
+              <p className="mt-2 text-sm leading-6 text-zinc-600">
+                {step.text}
+              </p>
+            </li>
+          ))}
+        </ol>
       </section>
 
-      {/* =========================================================
-          BENEFITS
-      ========================================================== */}
+      {/* WEEKLY PREVIEW */}
+      <section className="bg-zinc-950 py-16 text-white md:py-24">
+        <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-2 lg:gap-16">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-widest text-orange-400">
+              Plan ahead
+            </p>
 
-      <section className="px-6 pb-24 md:px-12">
-
-        <div className="mx-auto max-w-7xl rounded-[2rem] bg-white p-7 shadow-sm ring-1 ring-zinc-100 md:p-12">
-
-          <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
-
-            <div>
-
-              <p className="font-semibold uppercase tracking-[0.15em] text-orange-600">
-                Why LocalPlate AI
-              </p>
-
-              <h2 className="mt-4 text-4xl font-black leading-tight md:text-5xl">
-                Less food planning.
-                <br />
-                More actual living.
-              </h2>
-
-              <p className="mt-5 text-lg leading-8 text-zinc-600">
-                A good meal plan should make your life easier — not give you
-                another complicated task to manage.
-              </p>
-
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-
-              <div className="rounded-2xl bg-orange-50 p-5">
-                <p className="text-2xl">
-                  ⚡
-                </p>
-
-                <p className="mt-3 font-bold">
-                  Faster decisions
-                </p>
-
-                <p className="mt-1 text-sm leading-6 text-zinc-500">
-                  Know what to cook before the question becomes a problem.
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-green-50 p-5">
-                <p className="text-2xl">
-                  💰
-                </p>
-
-                <p className="mt-3 font-bold">
-                  Smarter spending
-                </p>
-
-                <p className="mt-1 text-sm leading-6 text-zinc-500">
-                  Build plans around the budget you choose.
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-blue-50 p-5">
-                <p className="text-2xl">
-                  🧺
-                </p>
-
-                <p className="mt-3 font-bold">
-                  Less waste
-                </p>
-
-                <p className="mt-1 text-sm leading-6 text-zinc-500">
-                  Reuse pantry ingredients across meals.
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-purple-50 p-5">
-                <p className="text-2xl">
-                  ❤️
-                </p>
-
-                <p className="mt-3 font-bold">
-                  More personal
-                </p>
-
-                <p className="mt-1 text-sm leading-6 text-zinc-500">
-                  Plans based on your actual preferences.
-                </p>
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* =========================================================
-          SEO
-      ========================================================== */}
-
-      <section
-        className="mx-auto max-w-7xl px-6 pb-24 md:px-12"
-        aria-labelledby="local-meal-planning-heading"
-      >
-
-        <div className="rounded-[2rem] border border-zinc-100 bg-white p-8 shadow-sm md:p-12">
-
-          <div className="grid gap-10 lg:grid-cols-2">
-
-            <div>
-
-              <p className="font-semibold uppercase tracking-[0.15em] text-orange-600">
-                LOCAL + PERSONALIZED
-              </p>
-
-              <h2
-                id="local-meal-planning-heading"
-                className="mt-4 text-4xl font-black leading-tight"
-              >
-                AI meal planning built around your real life
-              </h2>
-
-            </div>
-
-            <div>
-
-              <p className="text-lg leading-8 text-zinc-600">
-                Whether you need a Pakistani meal planner, a weekly meal
-                plan, a budget-friendly food plan or ideas for ingredients
-                already in your pantry, LocalPlate AI helps turn your
-                preferences into a practical plan.
-              </p>
-
-              <p className="mt-5 text-lg leading-8 text-zinc-600">
-                Choose your budget, diet, goals and food preferences, then
-                let AI create meals that work for your everyday routine.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-2">
-
-                <span className="rounded-full bg-zinc-100 px-4 py-2 text-sm font-semibold">
-                  AI Meal Planner
-                </span>
-
-                <span className="rounded-full bg-zinc-100 px-4 py-2 text-sm font-semibold">
-                  Pakistani Meal Planner
-                </span>
-
-                <span className="rounded-full bg-zinc-100 px-4 py-2 text-sm font-semibold">
-                  Budget Meal Planner
-                </span>
-
-                <span className="rounded-full bg-zinc-100 px-4 py-2 text-sm font-semibold">
-                  Weekly Meal Plan
-                </span>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* =========================================================
-          FINAL CTA
-      ========================================================== */}
-
-      <section
-        id="about"
-        className="px-6 pb-24 md:px-12"
-      >
-
-        <div className="relative mx-auto max-w-6xl overflow-hidden rounded-[2.5rem] bg-orange-600 px-7 py-16 text-center text-white shadow-2xl shadow-orange-200 md:px-12 md:py-24">
-
-          <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10" />
-
-          <div className="pointer-events-none absolute -bottom-32 -right-20 h-80 w-80 rounded-full bg-white/10" />
-
-          <div className="relative">
-
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-3xl shadow-lg">
-              🍽️
-            </div>
-
-            <h2 className="mx-auto mt-6 max-w-3xl text-4xl font-black leading-tight md:text-6xl">
-              Your next great meal
+            <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-5xl">
+              One week.
               <br />
-              starts with a plan.
+              <span className="text-orange-500">One smart plan.</span>
             </h2>
 
-            <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-orange-100">
-              Tell LocalPlate AI what you like, what you can spend and what
-              you already have. We&apos;ll help you plan the rest.
+            <p className="mt-5 max-w-lg leading-7 text-zinc-400">
+              Stop deciding what to cook every morning. Build your whole week
+              around your budget, diet and preferences.
             </p>
 
-            <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
-
-              <a
-                href="/planner"
-                className="rounded-full bg-white px-8 py-4 font-black text-orange-600 shadow-lg transition hover:-translate-y-0.5 hover:bg-orange-50"
-              >
-                Create My Meal Plan →
-              </a>
-
-              <a
-                href="/weekly-plan"
-                className="rounded-full border border-white/30 bg-white/10 px-8 py-4 font-black text-white transition hover:bg-white/20"
-              >
-                Plan My Week
-              </a>
-
-            </div>
-
+            <Link
+              href="/weekly-plan"
+              className="mt-8 inline-flex min-h-14 items-center justify-center rounded-full bg-orange-600 px-8 font-bold text-white transition hover:bg-orange-700 active:scale-95"
+            >
+              Build Weekly Plan →
+            </Link>
           </div>
 
-        </div>
+          <div className="rounded-4xl border border-white/10 bg-white/5 p-5 sm:p-6">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold">This week</h3>
 
+              <span className="rounded-full bg-green-500/15 px-3 py-1 text-xs font-bold text-green-400">
+                Budget OK
+              </span>
+            </div>
+
+            <ul className="mt-4 space-y-2.5">
+              {WEEK.map((item) => (
+                <li
+                  key={item.day}
+                  className="grid grid-cols-[3rem_1fr] items-center gap-3 rounded-2xl bg-white/5 p-3 sm:grid-cols-[3.5rem_1fr_1fr]"
+                >
+                  <span className="text-sm font-bold text-orange-400">
+                    {item.day}
+                  </span>
+
+                  <span className="truncate text-sm">{item.lunch}</span>
+
+                  <span className="col-start-2 truncate text-sm text-zinc-400 sm:col-start-auto">
+                    {item.dinner}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-zinc-400">Estimated weekly cost</span>
+                <span className="font-bold">Rs. 6,420 / 7,000</span>
+              </div>
+
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                <div className="h-full w-11/12 rounded-full bg-orange-500" />
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* =========================================================
-          FOOTER
-      ========================================================== */}
+      {/* FAQ */}
+      <section className="mx-auto max-w-3xl px-5 py-16 sm:px-8 md:py-24">
+        <div className="text-center">
+          <p className="text-sm font-bold uppercase tracking-widest text-orange-600">
+            FAQ
+          </p>
 
-      <footer className="border-t border-zinc-200 bg-white px-6 py-10 md:px-12">
+          <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+            Questions, answered
+          </h2>
+        </div>
 
-        <div className="mx-auto flex max-w-7xl flex-col gap-7 md:flex-row md:items-center md:justify-between">
-
-          <div>
-
-            <div className="flex items-center gap-3">
-
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-600 text-lg">
-                🍽️
-              </div>
-
-              <div>
-                <p className="font-black">
-                  LocalPlate
-                  <span className="text-orange-600">
-                    {" "}AI
-                  </span>
-                </p>
-
-                <p className="text-xs text-zinc-400">
-                  Smart meal planning
-                </p>
-              </div>
-
-            </div>
-
-          </div>
-
-          <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm font-medium text-zinc-500">
-
-            <a
-              href="/"
-              className="transition hover:text-orange-600"
+        <div className="mt-10 space-y-3">
+          {FAQS.map((faq) => (
+            <details
+              key={faq.question}
+              className="group rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm open:border-orange-200"
             >
-              Home
-            </a>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-bold">
+                {faq.question}
 
-            <a
+                <span
+                  aria-hidden="true"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full bg-orange-50 text-orange-600 transition-transform group-open:rotate-45"
+                >
+                  +
+                </span>
+              </summary>
+
+              <p className="mt-3 text-sm leading-7 text-zinc-600">
+                {faq.answer}
+              </p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      {/* FINAL CTA */}
+      <section className="px-5 pb-16 sm:px-8 md:pb-24">
+        <div className="mx-auto max-w-5xl rounded-4xl bg-linear-to-br from-orange-500 to-orange-700 px-6 py-12 text-center text-white shadow-2xl shadow-orange-200 sm:px-12 md:py-16">
+          <h2 className="text-3xl font-bold tracking-tight md:text-5xl">
+            Your next great meal
+            <br />
+            starts with a plan.
+          </h2>
+
+          <p className="mx-auto mt-4 max-w-xl text-orange-50">
+            Tell LocalPlate AI what you like, what you can spend and what you
+            already have. We will help with the rest.
+          </p>
+
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link
               href="/planner"
-              className="transition hover:text-orange-600"
+              className="inline-flex min-h-14 items-center justify-center rounded-full bg-white px-8 font-bold text-orange-700 shadow-lg transition hover:bg-orange-50 active:scale-95"
             >
-              Planner
-            </a>
+              Create My Meal Plan →
+            </Link>
 
-            <a
+            <Link
               href="/weekly-plan"
-              className="transition hover:text-orange-600"
+              className="inline-flex min-h-14 items-center justify-center rounded-full border border-white/40 px-8 font-bold text-white transition hover:bg-white/10 active:scale-95"
             >
-              Weekly Plan
-            </a>
+              Plan My Week
+            </Link>
+          </div>
+        </div>
+      </section>
 
-            <a
-              href="/saved-plans"
-              className="transition hover:text-orange-600"
-            >
-              Saved Plans
-            </a>
+      {/* FOOTER */}
+      <footer className="border-t border-orange-100 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-10 sm:px-8 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-lg font-black">
+              LocalPlate <span className="text-orange-600">AI</span>
+            </p>
 
-            <a
-              href="/shopping-list"
-              className="transition hover:text-orange-600"
-            >
-              Shopping List
-            </a>
-
+            <p className="mt-1 text-sm text-zinc-500">
+              Smart, budget-friendly and local meal planning.
+            </p>
           </div>
 
+          <nav
+            aria-label="Footer"
+            className="flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-zinc-600"
+          >
+            {FOOTER_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="transition hover:text-orange-600"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
         </div>
 
-        <div className="mx-auto mt-8 max-w-7xl border-t border-zinc-100 pt-6 text-center text-sm text-zinc-400">
-
-          <p>
-            © 2026 LocalPlate AI. All rights reserved.
-          </p>
-
-          <p className="mt-2">
-            AI meal planner for personalized, budget-friendly and local food
-            planning.
-          </p>
-
+        <div className="border-t border-zinc-100 py-4 text-center text-xs text-zinc-400">
+          © 2026 LocalPlate AI. All rights reserved.
         </div>
-
       </footer>
 
+      {/* Mobile quick action */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-orange-100 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden">
+        <Link
+          href="/planner"
+          className="flex min-h-12 items-center justify-center rounded-full bg-orange-600 font-bold text-white shadow-lg shadow-orange-200 active:scale-95"
+        >
+          Create My Meal Plan →
+        </Link>
+      </div>
     </main>
   );
 }
