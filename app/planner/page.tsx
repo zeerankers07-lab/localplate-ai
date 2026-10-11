@@ -410,7 +410,7 @@ IMPORTANT RULES
 
 7. The budget is for this meal and the selected number of people.
 
-8. Give realistic Pakistani Rupee (PKR) cost estimates.
+8. Give realistic Pakistani Rupee (PKR) cost estimates. Never estimate any single ingredient below Rs. 50 (the smallest note is Rs. 10) and round every price to the nearest Rs. 10.
 
 9. Do not suggest expensive or difficult-to-find ingredients unless absolutely necessary.
 
@@ -735,20 +735,10 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
 
       <div className="mx-auto max-w-6xl">
         {/* Title */}
-        <section className="max-w-3xl">
-          <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-700">
-            ✨ AI Meal Planner
-          </div>
-
-          <h1 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">
-            Your meal.
-            <span className="text-orange-600"> Your way.</span>
+        <section>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            Meal planner
           </h1>
-
-          <p className="mt-3 max-w-2xl text-base leading-7 text-zinc-600">
-            Tell LocalPlate AI your budget, goal and pantry. We will create one
-            practical meal just for you.
-          </p>
         </section>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_20rem] lg:items-start">

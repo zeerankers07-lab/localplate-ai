@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type UserState = {
@@ -16,10 +16,12 @@ export default function Navbar() {
     const [user, setUser] = useState<UserState | null>(null);
     const [loading, setLoading] = useState(true);
     const [loggingOut, setLoggingOut] = useState(false);
+    const navRef = useRef<HTMLDivElement>(null);
 
     const links = [
         { href: "/", label: "Home", icon: "⌂" },
-        { href: "/planner", label: "Planner", icon: "🍽" },
+        { href: "/cook", label: "What Can I Cook?", icon: "🍳" },
+        { href: "/planner", label: "Meal Planner", icon: "🤖" },
         { href: "/weekly-plan", label: "Weekly Plan", icon: "📅" },
         { href: "/saved-plans", label: "Saved Plans", icon: "▣" },
         { href: "/shopping-list", label: "Shopping List", icon: "🛒" },
@@ -56,6 +58,13 @@ export default function Navbar() {
 
         return () => subscription.unsubscribe();
     }, []);
+
+    // Keep the active link visible in the scrollable mobile navigation.
+    useEffect(() => {
+        navRef.current
+            ?.querySelector<HTMLElement>('[aria-current="page"]')
+            ?.scrollIntoView({ inline: "center", block: "nearest" });
+    }, [pathname]);
 
     async function handleLogout() {
         setLoggingOut(true);
@@ -106,27 +115,34 @@ export default function Navbar() {
                     aria-label="Primary navigation"
                     className="min-w-0 flex-1 overflow-x-auto rounded-full border border-zinc-800 bg-zinc-950 p-1 shadow-lg shadow-zinc-900/15 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
-                    <div className="flex w-max min-w-full items-center justify-center gap-0.5">
+                    <div
+                        ref={navRef}
+                        className="flex w-max min-w-full items-center justify-center gap-0.5"
+                    >
                         {links.map((link) => {
                             const isActive =
                                 !link.href.includes("#") &&
-                                pathname === link.href;
+                                (link.href === "/"
+                                    ? pathname === "/"
+                                    : pathname === link.href ||
+                                      pathname.startsWith(`${link.href}/`));
 
                             return (
                                 <Link
                                     key={link.href}
                                     href={link.href}
                                     aria-label={link.label}
-                                    className={`flex shrink-0 items-center justify-center gap-1.5 rounded-full px-2.5 py-2.5 text-sm font-medium transition-all duration-200 sm:gap-2 sm:px-3.5 md:px-4 ${
-                                        isActive
+                                    aria-current={isActive ? "page" : undefined}
+                                    title={link.label}
+                                    className={`flex shrink-0 items-center justify-center gap-1.5 rounded-full px-2.5 py-2.5 text-sm font-medium transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-orange-500 sm:gap-2 sm:px-3.5 md:px-4 ${isActive
                                             ? "bg-white text-zinc-900 shadow-sm"
                                             : "text-zinc-400 hover:bg-white/10 hover:text-white"
-                                    }`}
+                                        }`}
                                 >
                                     <span className="text-[15px] leading-none">
                                         {link.icon}
                                     </span>
-                                    <span className="hidden lg:inline">
+                                    <span className={isActive ? "inline" : "hidden lg:inline"}>
                                         {link.label}
                                     </span>
                                 </Link>

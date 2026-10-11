@@ -542,39 +542,15 @@ export default function SavedPlansPage() {
             <div className="mx-auto max-w-6xl">
                 {/* Title */}
                 <section>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-700">
-                        💾 Your Collection
-                    </div>
-
-                    <h1 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">
-                        Saved Meal
-                        <span className="text-orange-600"> Plans.</span>
+                    <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                        Saved plans
                     </h1>
-                </section>
 
-                {/* Stats */}
-                <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
-                    {[
-                        ["Total", savedPlans.length, "text-zinc-900"],
-                        ["Favorites", favoriteCount, "text-orange-600"],
-                        ["Weekly", weeklyCount, "text-indigo-600"],
-                        ["Single meals", singleCount, "text-green-600"],
-                    ].map(([label, value, color]) => (
-                        <div
-                            key={label}
-                            className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm sm:p-5"
-                        >
-                            <p className="text-xs font-medium text-zinc-500 sm:text-sm">
-                                {label}
-                            </p>
-                            <p
-                                className={`mt-1 text-2xl font-bold sm:text-3xl ${color}`}
-                            >
-                                {value}
-                            </p>
-                        </div>
-                    ))}
-                </div>
+                    <p className="mt-1.5 text-sm text-zinc-500">
+                        {savedPlans.length} total · {favoriteCount} favorites ·{" "}
+                        {weeklyCount} weekly · {singleCount} single
+                    </p>
+                </section>
 
                 {/* Search, filters, sort */}
                 <section className="mt-6 rounded-3xl border border-zinc-100 bg-white p-4 shadow-sm sm:p-5">

@@ -1,35 +1,34 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "What Can I Cook? | AI Recipe Finder",
+  title: "What Can I Cook? Find Recipes from Your Ingredients | LocalPlate",
   description:
-    "Tell LocalPlate AI what ingredients you already have and discover practical Pakistani meals you can cook with them.",
+    "Discover meals from ingredients you already have. Find easy recipes, estimate cooking costs, reduce food waste, and plan your next meal with LocalPlate.",
   keywords: [
     "what can I cook",
-    "AI recipe finder",
-    "ingredients recipe generator",
-    "pantry recipes",
-    "Pakistani recipes",
-    "AI cooking assistant",
+    "recipes from ingredients",
+    "what to cook with ingredients I have",
     "leftover recipes",
-    "meal ideas",
+    "budget meals",
+    "easy dinner ideas",
+    "ingredient recipe finder",
   ],
   alternates: {
     canonical: "/cook",
   },
   openGraph: {
     type: "website",
-    title: "What Can I Cook? | LocalPlate AI",
+    title: "What Can I Cook? | LocalPlate",
     description:
-      "Enter the ingredients you already have and discover practical meals you can cook with LocalPlate AI.",
+      "Turn ingredients you have into practical meal ideas with LocalPlate.",
     url: "/cook",
     siteName: "LocalPlate AI",
   },
   twitter: {
     card: "summary",
-    title: "What Can I Cook? | LocalPlate AI",
+    title: "What Can I Cook? | LocalPlate",
     description:
-      "Turn your available ingredients into practical meal ideas with LocalPlate AI.",
+      "Find recipes using ingredients you already have.",
   },
   robots: {
     index: true,

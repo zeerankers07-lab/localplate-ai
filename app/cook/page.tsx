@@ -1,110 +1,1087 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
+import { createClient } from "@/lib/supabase/client";
 
-type Mode = "available" | "leftover" | "quick";
+// =========================
+// Constants
+// =========================
 
-const modes: {
-  id: Mode;
-  icon: string;
-  title: string;
-  description: string;
-}[] = [
-  {
-    id: "available",
-    icon: "🍳",
-    title: "Cook with what I have",
-    description: "Find meals from your available ingredients.",
-  },
-  {
-    id: "leftover",
-    icon: "♻️",
-    title: "Use my leftovers",
-    description: "Turn leftovers into another useful meal.",
-  },
-  {
-    id: "quick",
-    icon: "⏱️",
-    title: "Quick meal",
-    description: "Find meals that are fast to prepare.",
-  },
+type CurrencyCode = "PKR" | "INR" | "USD";
+
+const CURRENCIES: Record<
+  CurrencyCode,
+  { symbol: string; country: string; defaultBudget: string }
+> = {
+  PKR: { symbol: "Rs.", country: "Pakistan", defaultBudget: "1000" },
+  INR: { symbol: "₹", country: "India", defaultBudget: "400" },
+  USD: { symbol: "$", country: "the USA", defaultBudget: "20" },
+};
+
+const CUISINES = [
+  "Pakistani",
+  "Indian",
+  "South Asian",
+  "Italian",
+  "Chinese",
+  "American",
+  "Middle Eastern",
+  "Any cuisine",
+];
+const DIETS = [
+  "Normal",
+  "Vegetarian",
+  "High Protein",
+  "Low Carb",
+  "Vegan",
+  "Halal",
+  "Gluten-free",
+  "Dairy-free",
+];
+const DIFFICULTIES = ["Any", "Easy", "Medium", "Hard"];
+const MEAL_TYPES = ["Any", "Breakfast", "Lunch", "Dinner", "Snack"];
+const ALLERGIES = [
+  "Nuts",
+  "Peanuts",
+  "Dairy",
+  "Eggs",
+  "Gluten",
+  "Soy",
+  "Seafood",
+  "Sesame",
 ];
 
-const starterIngredients = [
+type Mode = "available" | "leftover" | "quick" | "budget";
+
+const MODES: { id: Mode; label: string }[] = [
+  { id: "available", label: "Use what I have" },
+  { id: "leftover", label: "Rescue leftovers" },
+  { id: "quick", label: "Quick meals" },
+  { id: "budget", label: "Budget meals" },
+];
+
+const POPULAR = [
   "Chicken",
   "Eggs",
   "Rice",
   "Potatoes",
   "Onions",
   "Tomatoes",
+  "Daal",
+  "Flour",
 ];
 
-export default function CookPage() {
-  const [ingredients, setIngredients] = useState("");
-  const [mode, setMode] = useState<Mode>("available");
-  const [budget, setBudget] = useState("1000");
-  const [time, setTime] = useState("30");
-  const [people, setPeople] = useState("2");
-  const [diet, setDiet] = useState("Normal");
-  const [extra, setExtra] = useState("");
-  const [result, setResult] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+const SUGGESTIONS = Array.from(
+  new Set([
+    ...POPULAR,
+    "Beef",
+    "Mutton",
+    "Fish",
+    "Paneer",
+    "Tofu",
+    "Chickpeas",
+    "Spinach",
+    "Carrots",
+    "Peas",
+    "Cauliflower",
+    "Capsicum",
+    "Garlic",
+    "Ginger",
+    "Cucumber",
+    "Lemon",
+    "Mushrooms",
+    "Corn",
+    "Okra",
+    "Cabbage",
+    "Pasta",
+    "Bread",
+    "Oats",
+    "Noodles",
+    "Lentils",
+    "Yogurt",
+    "Milk",
+    "Butter",
+    "Cheese",
+    "Cream",
+    "Ghee",
+    "Salt",
+    "Red chili powder",
+    "Turmeric",
+    "Cumin",
+    "Garam masala",
+    "Coriander powder",
+    "Black pepper",
+    "Green chilies",
+  ])
+);
 
-  const ingredientCount = useMemo(() => {
-    return ingredients
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean).length;
-  }, [ingredients]);
+const MEAL_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MEAL_SLOTS = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
-  function addStarterIngredient(value: string) {
-    const current = ingredients
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
+const STORAGE_KEY = "localplate_cook_ingredients";
+const PREFS_KEY = "localplate_cook_prefs";
+const SAVED_KEY = "localplate_saved_recipes";
+const PLAN_KEY = "localplate_cook_meal_plan";
+const CLOUD_KEY = "localplate_cook_cloud_user";
+const MAX_SAVED = 30;
 
-    if (
-      current.some(
-        (item) => item.toLowerCase() === value.toLowerCase()
-      )
-    ) {
+type Tab = "results" | "saved" | "plan";
+
+type Toast = {
+  id: number;
+  message: string;
+  tone: "success" | "error";
+};
+
+type Block = {
+  heading: string;
+  body: string;
+  markdown: string;
+};
+
+type SavedRecipe = {
+  id: string;
+  title: string;
+  markdown: string;
+  savedAt: number;
+  people?: number;
+  symbol?: string;
+};
+
+type PlannedMeal = {
+  id: string;
+  day: string;
+  slot: string;
+  title: string;
+  markdown: string;
+  symbol: string;
+};
+
+// =========================
+// Helpers
+// =========================
+
+function splitList(value: string) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function splitBlocks(text: string) {
+  const parts = text.split(/^(?=##\s)/m);
+  let intro = "";
+  const blocks: Block[] = [];
+
+  parts.forEach((part, index) => {
+    if (index === 0 && !/^##\s/.test(part)) {
+      intro = part.trim();
       return;
     }
 
-    setIngredients(
-      [...current, value].join(", ")
-    );
+    const [first, ...rest] = part.split("\n");
+
+    blocks.push({
+      heading: first.replace(/^##\s*/, "").trim(),
+      body: rest.join("\n").trim(),
+      markdown: part.trim(),
+    });
+  });
+
+  return { intro, blocks };
+}
+
+function readCost(body: string) {
+  const match = body.match(
+    /Estimated Cost:?\**\s*(?:PKR|INR|USD|Rs\.?|₹|\$)\s*([\d,]+)/i
+  );
+
+  return match ? match[1] : null;
+}
+
+function readTime(body: string) {
+  const match = body.match(/Time:?\**\s*(\d+)/i);
+  return match ? match[1] : null;
+}
+
+function readListLines(body: string) {
+  return body
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^[-*•]\s+/.test(line))
+    .map((line) => line.replace(/^[-*•]\s+/, "").replace(/\*\*/g, "").trim())
+    .filter(Boolean);
+}
+
+function readDifficulty(body: string) {
+  const match = body.match(/Difficulty:?\**\s*(Easy|Medium|Hard)/i);
+  if (!match) return null;
+
+  const value = match[1].toLowerCase();
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function readSection(body: string, label: string) {
+  const lines = body.split("\n");
+  const startPattern = new RegExp(`^\\*\\*${label}:?\\*\\*:?`, "i");
+  const start = lines.findIndex((line) => startPattern.test(line.trim()));
+
+  if (start === -1) return "";
+
+  const collected: string[] = [];
+  const firstLine = lines[start].trim().replace(startPattern, "").trim();
+  if (firstLine) collected.push(firstLine);
+
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^\*\*[^*]+\*\*/.test(lines[i].trim())) break;
+    collected.push(lines[i]);
+  }
+
+  return collected.join("\n").trim();
+}
+
+function readNutrition(body: string) {
+  const pick = (pattern: RegExp) => {
+    const match = body.match(pattern);
+    return match ? match[1] : null;
+  };
+
+  const calories = pick(/Calories:?\**\s*(\d+(?:\.\d+)?)/i);
+  const protein = pick(/Protein:?\**\s*(\d+(?:\.\d+)?)/i);
+  const carbs = pick(/Carbs?(?:ohydrates)?:?\**\s*(\d+(?:\.\d+)?)/i);
+  const fat = pick(/Fat:?\**\s*(\d+(?:\.\d+)?)/i);
+
+  if (!calories && !protein && !carbs && !fat) return null;
+
+  return { calories, protein, carbs, fat };
+}
+
+function mergeUnique(base: string[], extra: string[]) {
+  const seen = new Set(base.map((item) => item.toLowerCase()));
+  const merged = [...base];
+
+  extra.forEach((item) => {
+    const key = item.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(item);
+  });
+
+  return merged;
+}
+
+function formatQuantity(value: number) {
+  if (value >= 10) return String(Math.round(value));
+  return String(Math.round(value * 10) / 10);
+}
+
+function scaleItem(item: string, factor: number) {
+  if (factor === 1) return item;
+
+  const match = item.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?)(.*)$/);
+  if (!match) return item;
+
+  // Ranges such as "3-4 cloves" are left unchanged.
+  if (/^\s*[-–]\s*\d/.test(match[2])) return item;
+
+  const raw = match[1].trim();
+  let value: number;
+
+  if (/^\d+\s+\d+\/\d+$/.test(raw)) {
+    const [whole, fraction] = raw.split(/\s+/);
+    const [top, bottom] = fraction.split("/").map(Number);
+    value = Number(whole) + top / bottom;
+  } else if (raw.includes("/")) {
+    const [top, bottom] = raw.split("/").map(Number);
+    value = top / bottom;
+  } else {
+    value = Number(raw);
+  }
+
+  if (!Number.isFinite(value) || value <= 0) return item;
+
+  return `${formatQuantity(value * factor)}${match[2]}`;
+}
+
+const PLAN_ITEM_QUANTITY =
+  /^(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?)\s*(kgs?|g|gm|grams?|mg|l|liters?|litres?|ml|cups?|tbsp|tsp|tablespoons?|teaspoons?|pieces?|pcs?|cloves?|slices?|pinch|bunch|cans?|packets?|dozen)?\b\s*(?:of\s+)?(.+)$/i;
+
+function planItemLine(item: string) {
+  const match = item.match(PLAN_ITEM_QUANTITY);
+  if (!match) return `- ${item}`;
+
+  const quantity = `${match[1]}${match[2] ? ` ${match[2]}` : ""}`.trim();
+  const name = match[3].trim();
+
+  return `- ${name.charAt(0).toUpperCase()}${name.slice(1)} — ${quantity}`;
+}
+
+
+function recipeTitle(heading: string) {
+  return heading.replace(/^🍽\uFE0F?\s*/, "").trim() || heading;
+}
+
+function recipeId(heading: string) {
+  return recipeTitle(heading).toLowerCase();
+}
+
+function cleanSaved(value: unknown): SavedRecipe[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.filter(
+    (item): item is SavedRecipe =>
+      !!item &&
+      typeof item.id === "string" &&
+      typeof item.title === "string" &&
+      typeof item.markdown === "string"
+  );
+}
+
+function cleanPlan(value: unknown): PlannedMeal[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.filter(
+    (item): item is PlannedMeal =>
+      !!item &&
+      typeof item.id === "string" &&
+      typeof item.day === "string" &&
+      typeof item.slot === "string" &&
+      typeof item.title === "string" &&
+      typeof item.markdown === "string"
+  );
+}
+
+function mergeById<T extends { id: string }>(primary: T[], extra: T[]) {
+  const ids = new Set(primary.map((item) => item.id));
+  return [...primary, ...extra.filter((item) => !ids.has(item.id))];
+}
+
+// =========================
+// UI pieces
+// =========================
+
+const ICON_PATHS = {
+  bookmark: "M6 3h12v18l-6-4-6 4V3z",
+  calendar: "M4 6h16v14H4zM4 10h16M8 3v4M16 3v4",
+  cart: "M3 4h2l2.4 11h10.2L20 8H6.2M9 20h.01M17 20h.01",
+  copy: "M9 9h11v11H9zM5 15V4h11",
+  chevron: "M6 9l6 6 6-6",
+  x: "M6 6l12 12M18 6L6 18",
+  plus: "M12 5v14M5 12h14",
+  minus: "M5 12h14",
+  trash: "M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3",
+} as const;
+
+type IconName = keyof typeof ICON_PATHS;
+
+function Icon({
+  name,
+  className = "size-4",
+  filled = false,
+}: {
+  name: IconName;
+  className?: string;
+  filled?: boolean;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d={ICON_PATHS[name]} />
+    </svg>
+  );
+}
+
+function Markdown({ text }: { text: string }) {
+  return (
+    <ReactMarkdown
+      components={{
+        h2: ({ children }) => (
+          <h3 className="mb-2 mt-4 text-sm font-semibold first:mt-0">
+            {children}
+          </h3>
+        ),
+        p: ({ children }) => (
+          <p className="mb-2 text-sm leading-6 text-zinc-700">{children}</p>
+        ),
+        ul: ({ children }) => (
+          <ul className="mb-3 list-disc space-y-1 pl-5 text-sm leading-6 text-zinc-700">
+            {children}
+          </ul>
+        ),
+        ol: ({ children }) => (
+          <ol className="list-decimal space-y-1.5 pl-5 text-sm leading-6 text-zinc-700">
+            {children}
+          </ol>
+        ),
+        strong: ({ children }) => (
+          <strong className="font-semibold text-zinc-900">{children}</strong>
+        ),
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  );
+}
+
+const iconButton =
+  "flex size-9 items-center justify-center rounded-lg text-zinc-500 outline-none transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-orange-500 active:scale-95";
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+      {children}
+    </p>
+  );
+}
+
+type RecipeCardProps = {
+  meal: Block;
+  basePeople: number;
+  symbol: string;
+  saved: boolean;
+  defaultOpen?: boolean;
+  onSave: () => void;
+  onPlan: () => void;
+  onShop: (items: string[]) => void;
+  onCopy: () => void;
+};
+
+function RecipeCard({
+  meal,
+  basePeople,
+  symbol,
+  saved,
+  defaultOpen = false,
+  onSave,
+  onPlan,
+  onShop,
+  onCopy,
+}: RecipeCardProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  const [servings, setServings] = useState(basePeople);
+
+  const cost = readCost(meal.body);
+  const minutes = readTime(meal.body);
+  const level = readDifficulty(meal.body);
+  const nutrition = readNutrition(meal.body);
+
+  const factor = servings / basePeople;
+  const totalCost = cost ? Number(cost.replace(/,/g, "")) : NaN;
+  const scaledCost = Number.isFinite(totalCost)
+    ? Math.round(totalCost * factor).toLocaleString("en-US")
+    : cost;
+
+  const haveItems = readListLines(
+    readSection(meal.body, "You Already Have")
+  ).map((item) => scaleItem(item, factor));
+  const needItems = readListLines(readSection(meal.body, "You May Need")).map(
+    (item) => scaleItem(item, factor)
+  );
+  const recipe = readSection(meal.body, "Quick Recipe");
+  const substitutions = readListLines(readSection(meal.body, "Substitutions"));
+  const structured =
+    haveItems.length > 0 || needItems.length > 0 || recipe.length > 0;
+
+  const meta = [
+    minutes ? `${minutes} min` : "",
+    level ?? "",
+    scaledCost ? `${symbol} ${scaledCost}` : "",
+    nutrition?.calories ? `${nutrition.calories} kcal` : "",
+  ].filter(Boolean);
+
+  return (
+    <article className="rounded-xl border border-zinc-200 bg-white">
+      <div className="flex items-start gap-1 p-2 pr-3">
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-start gap-3 rounded-lg p-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold leading-snug">
+              {recipeTitle(meal.heading)}
+            </span>
+            {meta.length > 0 && (
+              <span className="mt-1 block text-sm text-zinc-500">
+                {meta.join(" · ")}
+              </span>
+            )}
+          </span>
+
+          <Icon
+            name="chevron"
+            className={`mt-1 size-4 shrink-0 text-zinc-400 transition-transform ${
+              open ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+
+        <div className="flex shrink-0 pt-1">
+          <button
+            type="button"
+            onClick={onSave}
+            aria-pressed={saved}
+            aria-label={saved ? "Remove from saved" : "Save recipe"}
+            title={saved ? "Remove from saved" : "Save recipe"}
+            className={`${iconButton} ${saved ? "text-orange-600" : ""}`}
+          >
+            <Icon name="bookmark" filled={saved} />
+          </button>
+
+          <button
+            type="button"
+            onClick={onPlan}
+            aria-label="Add to meal plan"
+            title="Add to meal plan"
+            className={iconButton}
+          >
+            <Icon name="calendar" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onShop(needItems)}
+            disabled={needItems.length === 0}
+            aria-label="Add missing items to shopping list"
+            title="Add missing items to shopping list"
+            className={`${iconButton} disabled:opacity-40`}
+          >
+            <Icon name="cart" />
+          </button>
+
+          <button
+            type="button"
+            onClick={onCopy}
+            aria-label="Copy recipe"
+            title="Copy recipe"
+            className={iconButton}
+          >
+            <Icon name="copy" />
+          </button>
+        </div>
+      </div>
+
+      {open && (
+        <div className="space-y-5 border-t border-zinc-100 p-4">
+          {structured ? (
+            <>
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-zinc-500">Servings</span>
+
+                <div className="inline-flex items-center rounded-lg border border-zinc-200">
+                  <button
+                    type="button"
+                    onClick={() => setServings((value) => Math.max(1, value - 1))}
+                    aria-label="Fewer servings"
+                    className="flex size-8 items-center justify-center rounded-l-lg text-zinc-600 outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-orange-500"
+                  >
+                    <Icon name="minus" className="size-3.5" />
+                  </button>
+
+                  <span
+                    className="min-w-8 text-center font-medium"
+                    aria-live="polite"
+                  >
+                    {servings}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setServings((value) => Math.min(20, value + 1))}
+                    aria-label="More servings"
+                    className="flex size-8 items-center justify-center rounded-r-lg text-zinc-600 outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-orange-500"
+                  >
+                    <Icon name="plus" className="size-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {(haveItems.length > 0 || needItems.length > 0) && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <SectionLabel>Have</SectionLabel>
+                    <ul className="mt-1.5 space-y-1 text-sm text-zinc-700">
+                      {haveItems.length > 0 ? (
+                        haveItems.map((item, index) => (
+                          <li key={`${item}-${index}`}>{item}</li>
+                        ))
+                      ) : (
+                        <li className="text-zinc-400">—</li>
+                      )}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <SectionLabel>Need</SectionLabel>
+                    <ul className="mt-1.5 space-y-1 text-sm text-zinc-700">
+                      {needItems.length > 0 ? (
+                        needItems.map((item, index) => (
+                          <li key={`${item}-${index}`}>{item}</li>
+                        ))
+                      ) : (
+                        <li className="text-zinc-400">Nothing</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {nutrition && (
+                <div>
+                  <SectionLabel>Per serving (estimate)</SectionLabel>
+                  <p className="mt-1.5 text-sm text-zinc-700">
+                    {[
+                      nutrition.calories ? `${nutrition.calories} kcal` : "",
+                      nutrition.protein ? `${nutrition.protein} g protein` : "",
+                      nutrition.carbs ? `${nutrition.carbs} g carbs` : "",
+                      nutrition.fat ? `${nutrition.fat} g fat` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
+              )}
+
+              {recipe && (
+                <div>
+                  <SectionLabel>Steps</SectionLabel>
+                  <div className="mt-1.5">
+                    <Markdown text={recipe} />
+                  </div>
+                </div>
+              )}
+
+              {substitutions.length > 0 && (
+                <div>
+                  <SectionLabel>Substitutions</SectionLabel>
+                  <ul className="mt-1.5 space-y-1 text-sm text-zinc-700">
+                    {substitutions.map((item, index) => (
+                      <li key={`${item}-${index}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          ) : (
+            <Markdown text={meal.body} />
+          )}
+        </div>
+      )}
+    </article>
+  );
+}
+
+const fieldClass =
+  "h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-base outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100 sm:text-sm";
+
+const labelClass = "mb-1.5 block text-xs font-medium text-zinc-500";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "results", label: "Results" },
+  { id: "saved", label: "Saved" },
+  { id: "plan", label: "Plan" },
+];
+
+// =========================
+// Page
+// =========================
+
+export default function CookPage() {
+  const router = useRouter();
+
+  // Inputs
+  const [ingredients, setIngredients] = useState<string[]>([]);
+  const [draft, setDraft] = useState("");
+  const [cuisine, setCuisine] = useState("Pakistani");
+  const [diet, setDiet] = useState("Normal");
+  const [difficulty, setDifficulty] = useState("Any");
+  const [mealType, setMealType] = useState("Any");
+  const [mode, setMode] = useState<Mode>("available");
+  const [currency, setCurrency] = useState<CurrencyCode>("PKR");
+  const [budget, setBudget] = useState("1000");
+  const [time, setTime] = useState("30");
+  const [people, setPeople] = useState("2");
+  const [allergies, setAllergies] = useState<string[]>([]);
+  const [notes, setNotes] = useState("");
+
+  // Results
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState("");
+  const [resultCurrency, setResultCurrency] = useState<CurrencyCode>("PKR");
+  const [resultPeople, setResultPeople] = useState(2);
+
+  // Saved recipes and meal plan
+  const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
+  const [plannedMeals, setPlannedMeals] = useState<PlannedMeal[]>([]);
+  const [tab, setTab] = useState<Tab>("results");
+  const [planTarget, setPlanTarget] = useState<{
+    meal: Block;
+    symbol: string;
+  } | null>(null);
+  const [pickDay, setPickDay] = useState("Mon");
+  const [pickSlot, setPickSlot] = useState("Dinner");
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [planSaved, setPlanSaved] = useState(false);
+
+  // Storage and account sync
+  const [restored, setRestored] = useState(false);
+  const [cloudReady, setCloudReady] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+
+  const [toast, setToast] = useState<Toast | null>(null);
+  const toastTimer = useRef<number | null>(null);
+  const resultsRef = useRef<HTMLElement>(null);
+
+  const currencyInfo = CURRENCIES[currency];
+  const resultSymbol = CURRENCIES[resultCurrency].symbol;
+
+  function showToast(message: string, tone: "success" | "error" = "success") {
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+
+    setToast({ id: Date.now(), message, tone });
+    toastTimer.current = window.setTimeout(() => setToast(null), 2600);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    };
+  }, []);
+
+  // Restore everything that is stored on this device.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const storedIngredients = localStorage.getItem(STORAGE_KEY);
+
+        if (storedIngredients) {
+          setIngredients(
+            mergeUnique([], splitList(storedIngredients)).slice(0, 40)
+          );
+        }
+
+        const rawPrefs = localStorage.getItem(PREFS_KEY);
+
+        if (rawPrefs) {
+          const prefs = JSON.parse(rawPrefs) as Record<string, unknown>;
+          const text = (value: unknown) =>
+            typeof value === "string" ? value : "";
+
+          if (CUISINES.includes(text(prefs.cuisine))) {
+            setCuisine(text(prefs.cuisine));
+          }
+          if (DIETS.includes(text(prefs.diet))) setDiet(text(prefs.diet));
+          if (DIFFICULTIES.includes(text(prefs.difficulty))) {
+            setDifficulty(text(prefs.difficulty));
+          }
+          if (MEAL_TYPES.includes(text(prefs.mealType))) {
+            setMealType(text(prefs.mealType));
+          }
+          if (MODES.some((item) => item.id === text(prefs.mode))) {
+            setMode(text(prefs.mode) as Mode);
+          }
+          if (Object.keys(CURRENCIES).includes(text(prefs.currency))) {
+            setCurrency(text(prefs.currency) as CurrencyCode);
+          }
+          if (/^\d{1,6}$/.test(text(prefs.budget))) {
+            setBudget(text(prefs.budget));
+          }
+          if (/^\d{1,3}$/.test(text(prefs.time))) setTime(text(prefs.time));
+          if (/^\d{1,2}$/.test(text(prefs.people))) {
+            setPeople(text(prefs.people));
+          }
+          if (Array.isArray(prefs.allergies)) {
+            setAllergies(
+              prefs.allergies.filter(
+                (item): item is string =>
+                  typeof item === "string" && ALLERGIES.includes(item)
+              )
+            );
+          }
+        }
+
+        setSavedRecipes(
+          cleanSaved(JSON.parse(localStorage.getItem(SAVED_KEY) || "[]"))
+        );
+        setPlannedMeals(
+          cleanPlan(JSON.parse(localStorage.getItem(PLAN_KEY) || "[]"))
+        );
+      } catch (storageError) {
+        console.error("Could not restore cook data:", storageError);
+      }
+
+      setRestored(true);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  // Keep this device up to date.
+  useEffect(() => {
+    if (!restored) return;
+
+    try {
+      localStorage.setItem(STORAGE_KEY, ingredients.join(", "));
+      localStorage.setItem(
+        PREFS_KEY,
+        JSON.stringify({
+          cuisine,
+          diet,
+          difficulty,
+          mealType,
+          mode,
+          currency,
+          budget,
+          time,
+          people,
+          allergies,
+        })
+      );
+    } catch (storageError) {
+      console.error("Could not save settings:", storageError);
+    }
+  }, [
+    restored,
+    ingredients,
+    cuisine,
+    diet,
+    difficulty,
+    mealType,
+    mode,
+    currency,
+    budget,
+    time,
+    people,
+    allergies,
+  ]);
+
+  useEffect(() => {
+    if (!restored) return;
+
+    try {
+      localStorage.setItem(SAVED_KEY, JSON.stringify(savedRecipes));
+    } catch (storageError) {
+      console.error("Could not save recipes:", storageError);
+    }
+  }, [restored, savedRecipes]);
+
+  useEffect(() => {
+    if (!restored) return;
+
+    try {
+      localStorage.setItem(PLAN_KEY, JSON.stringify(plannedMeals));
+    } catch (storageError) {
+      console.error("Could not save meal plan:", storageError);
+    }
+  }, [restored, plannedMeals]);
+
+  // Load the account copy (table: cook_data) once, then keep it in sync.
+  // The first sync on a device merges; later loads trust the account copy.
+  useEffect(() => {
+    if (!restored) return;
+
+    let cancelled = false;
+
+    async function loadAccountData() {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user || cancelled) return;
+
+        const { data, error: loadError } = await supabase
+          .from("cook_data")
+          .select("saved_recipes, meal_plan")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (loadError) throw loadError;
+        if (cancelled) return;
+
+        const accountSaved = cleanSaved(data?.saved_recipes);
+        const accountPlan = cleanPlan(data?.meal_plan);
+        const alreadySynced = localStorage.getItem(CLOUD_KEY) === user.id;
+
+        setSavedRecipes((local) =>
+          alreadySynced && data ? accountSaved : mergeById(accountSaved, local)
+        );
+        setPlannedMeals((local) =>
+          alreadySynced && data ? accountPlan : mergeById(accountPlan, local)
+        );
+
+        localStorage.setItem(CLOUD_KEY, user.id);
+        setSignedIn(true);
+        setCloudReady(true);
+      } catch (cloudError) {
+        console.error("Could not load account data:", cloudError);
+      }
+    }
+
+    loadAccountData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [restored]);
+
+  useEffect(() => {
+    if (!cloudReady) return;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) return;
+
+        const { error: saveError } = await supabase.from("cook_data").upsert(
+          {
+            user_id: user.id,
+            saved_recipes: savedRecipes,
+            meal_plan: plannedMeals,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
+
+        if (saveError) throw saveError;
+      } catch (cloudError) {
+        console.error("Could not sync account data:", cloudError);
+      }
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [cloudReady, savedRecipes, plannedMeals]);
+
+  // Close the meal plan dialog with Escape.
+  useEffect(() => {
+    if (!planTarget) return;
+
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setPlanTarget(null);
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [planTarget]);
+
+  const meals = useMemo(
+    () => splitBlocks(result).blocks.filter((block) => /🍽/.test(block.heading)),
+    [result]
+  );
+
+  const suggestions = useMemo(() => {
+    const term = draft.trim().toLowerCase();
+    const taken = new Set(ingredients.map((item) => item.toLowerCase()));
+    const pool = term
+      ? SUGGESTIONS.filter((item) => item.toLowerCase().includes(term))
+      : POPULAR;
+
+    return pool.filter((item) => !taken.has(item.toLowerCase())).slice(0, 8);
+  }, [draft, ingredients]);
+
+  // =========================
+  // Ingredients
+  // =========================
+
+  function addIngredients(raw: string) {
+    const items = raw
+      .split(/[,\n]/)
+      .map((item) => item.trim().replace(/\s+/g, " "))
+      .filter(Boolean)
+      .map((item) => item.charAt(0).toUpperCase() + item.slice(1))
+      .slice(0, 40);
+
+    if (items.length === 0) return;
+
+    setIngredients((previous) => mergeUnique(previous, items).slice(0, 40));
+    setDraft("");
   }
 
   function removeIngredient(value: string) {
-    const updated = ingredients
-      .split(",")
-      .map((item) => item.trim())
-      .filter(
-        (item) =>
-          item &&
-          item.toLowerCase() !== value.toLowerCase()
-      );
-
-    setIngredients(updated.join(", "));
+    setIngredients((previous) => previous.filter((item) => item !== value));
   }
 
-  async function findMeals(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function clearAll() {
+    setIngredients([]);
+    setDraft("");
+    setResult("");
+    setError("");
+  }
+
+  function toggleAllergy(item: string) {
+    setAllergies((previous) =>
+      previous.includes(item)
+        ? previous.filter((value) => value !== item)
+        : [...previous, item]
+    );
+  }
+
+  function changeCurrency(code: CurrencyCode) {
+    setCurrency(code);
+    setBudget(CURRENCIES[code].defaultBudget);
+  }
+
+  // =========================
+  // Recipes
+  // =========================
+
+  async function findMeals(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+
+    if (loading) return;
 
     setError("");
-    setResult("");
+    setTab("results");
 
-    if (!ingredients.trim()) {
-      setError(
-        "Pehle kam az kam 1 ingredient enter karein."
-      );
+    if (ingredients.length === 0) {
+      setError("Add at least one ingredient.");
+      return;
+    }
+
+    if (!budget || Number(budget) <= 0) {
+      setError("Enter a valid budget.");
+      return;
+    }
+
+    if (!time || Number(time) <= 0) {
+      setError("Enter a valid cooking time.");
+      return;
+    }
+
+    if (!people || Number(people) <= 0) {
+      setError("Enter the number of people.");
       return;
     }
 
     setLoading(true);
+    setResult("");
+
+    const ingredientText = ingredients.join(", ");
 
     const modeInstructions: Record<Mode, string> = {
       available: `
@@ -121,13 +1098,18 @@ Reduce food waste.
 The user wants quick meals.
 Prioritize recipes that can realistically be completed within ${time} minutes.
       `,
+      budget: `
+The user wants budget cooking.
+Prioritize cheap, filling and nutritious meals built on low-cost ingredients.
+Keep the total cost clearly within the budget and suitable for the number of people.
+      `,
     };
 
     const prompt = `
 You are LocalPlate AI's "What Can I Cook?" assistant.
 
 USER INGREDIENTS:
-${ingredients}
+${ingredientText}
 
 MODE:
 ${mode}
@@ -135,7 +1117,7 @@ ${mode}
 ${modeInstructions[mode]}
 
 BUDGET:
-PKR ${budget}
+${currency} ${budget}
 
 NUMBER OF PEOPLE:
 ${people}
@@ -143,105 +1125,118 @@ ${people}
 DIET:
 ${diet}
 
+CUISINE:
+${cuisine}
+
+Prioritize the selected cuisine while respecting the user's
+ingredients, budget, cooking time, and dietary restrictions.
+
+DIFFICULTY:
+${difficulty}
+
+If difficulty is not "Any", suggest only recipes that match it:
+- Easy: few steps, basic techniques, minimal equipment.
+- Medium: some preparation and moderate cooking skill.
+- Hard: advanced techniques or longer preparation.
+
+MEAL TYPE:
+${mealType}
+
+ALLERGIES (NEVER INCLUDE, NOT EVEN AS A SUBSTITUTION):
+${allergies.length > 0 ? allergies.join(", ") : "None"}
+
 MAXIMUM COOKING TIME:
 ${time} minutes
 
 EXTRA PREFERENCE:
-${extra || "None"}
+${notes.trim() || "None"}
 
 Create 5 practical meal ideas.
 
 IMPORTANT RULES:
 - Prioritize the ingredients the user already has.
-- Prefer Pakistani, South Asian and familiar household meals when appropriate.
+- Follow the selected CUISINE for all meal ideas.
+- If the selected cuisine is "Any cuisine", choose the most practical meals for the ingredients, budget and time.
+- Do not suggest Pakistani dishes unless the selected cuisine is Pakistani, South Asian or Any cuisine.
+- If the ingredients are a poor fit for the selected cuisine, suggest the closest realistic version.
 - Do not invent that the user owns ingredients that were not provided.
 - Clearly identify additional ingredients that may be needed.
-- Keep approximate costs realistic for Pakistan.
-- Respect the selected budget.
-- Respect the selected diet.
-- Respect allergies or restrictions if mentioned.
-- Do not make medical claims.
-- Do not recommend extreme diets.
-- If the user's ingredients are insufficient for a complete meal, say what is missing.
+- Keep approximate costs realistic for ${currencyInfo.country}, using ${currency}.
+${currency === "PKR" ? "- Never estimate any single ingredient below Rs. 50 (the smallest note is Rs. 10) and round every price to the nearest Rs. 10.\n" : ""}- Respect the selected budget, diet and allergies.
+- Do not make medical claims and do not recommend extreme diets.
 - For leftovers, prioritize food-waste reduction.
 - For quick meals, respect the requested maximum time.
+- For budget cooking, prioritize low cost and filling meals.
+- Never include any ingredient listed under ALLERGIES, including in substitutions.
+- If a meal type is selected (not "Any"), suggest only meals suitable for it.
+- Write every ingredient with its quantity first, for example "500 g chicken" or "2 eggs", for the full group of ${people} people.
+- Do not repeat ingredient quantities inside the recipe steps.
+- Nutrition values are rough per-serving estimates, not medical advice.
 
 FOR EACH MEAL USE THIS FORMAT:
 
 ## 🍽️ [Meal Name]
 
-**Estimated Cost:** PKR [amount]
+**Estimated Cost:** ${currency} [total amount for all ${people} people]
 
 **Time:** [minutes]
 
+**Difficulty:** [Easy / Medium / Hard]
+
+**Nutrition (per serving):** Calories: [number] kcal | Protein: [number] g | Carbs: [number] g | Fat: [number] g
+
 **You Already Have:**
-- ingredient
-- ingredient
+- [quantity] [unit] ingredient
 
 **You May Need:**
-- ingredient
-- ingredient
+- [quantity] [unit] ingredient
 
 **Quick Recipe:**
 1. Step
 2. Step
 3. Step
 
-**Why it works:**
-One short sentence.
+**Substitutions:**
+- missing ingredient → practical alternative (only for items under You May Need)
 
-**Smart Swap:**
-One practical substitution if available.
-
-At the end provide:
-
-## 🛒 Missing Ingredients
-
-List only ingredients that are likely needed but were not included by the user.
-
-## 💡 LocalPlate Tip
-
-Give one short practical food-saving or cooking tip.
-
-Keep the response useful and reasonably concise.
+Keep the response concise. Do not add any text after the last meal.
 `;
 
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: prompt,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: prompt, mode: "cook" }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            "AI request failed. Please try again."
-        );
+        throw new Error(data?.error || "Request failed. Please try again.");
       }
 
-      if (
-        typeof data?.reply !== "string" ||
-        !data.reply.trim()
-      ) {
-        throw new Error(
-          "AI ne koi valid meal result return nahi kiya."
-        );
+      if (typeof data?.reply !== "string" || !data.reply.trim()) {
+        throw new Error("No recipes were returned. Please try again.");
       }
 
+      setResultCurrency(currency);
+      setResultPeople(Number(people));
       setResult(data.reply);
-    } catch (err) {
-      console.error("What Can I Cook error:", err);
+
+      if (window.matchMedia("(max-width: 1023px)").matches) {
+        window.requestAnimationFrame(() =>
+          resultsRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          })
+        );
+      }
+    } catch (requestError) {
+      console.error("What can I cook error:", requestError);
 
       setError(
-        err instanceof Error
-          ? err.message
+        requestError instanceof Error
+          ? requestError.message
           : "Something went wrong. Please try again."
       );
     } finally {
@@ -249,514 +1244,978 @@ Keep the response useful and reasonably concise.
     }
   }
 
-  function clearAll() {
-    setIngredients("");
-    setExtra("");
-    setResult("");
-    setError("");
+  // =========================
+  // Saved recipes
+  // =========================
+
+  function isSaved(heading: string) {
+    const id = recipeId(heading);
+    return savedRecipes.some((recipe) => recipe.id === id);
   }
 
+  function toggleSave(meal: Block, peopleCount: number, symbol: string) {
+    const id = recipeId(meal.heading);
+
+    if (savedRecipes.some((recipe) => recipe.id === id)) {
+      setSavedRecipes(savedRecipes.filter((recipe) => recipe.id !== id));
+      showToast("Removed from saved");
+      return;
+    }
+
+    if (savedRecipes.length >= MAX_SAVED) {
+      showToast(`Limit of ${MAX_SAVED} saved recipes reached.`, "error");
+      return;
+    }
+
+    setSavedRecipes([
+      {
+        id,
+        title: recipeTitle(meal.heading),
+        markdown: meal.markdown,
+        savedAt: Date.now(),
+        people: peopleCount,
+        symbol,
+      },
+      ...savedRecipes,
+    ]);
+    showToast("Saved");
+  }
+
+  async function copyText(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("Copied");
+    } catch (copyError) {
+      console.error("Copy failed:", copyError);
+      showToast("Could not copy.", "error");
+    }
+  }
+
+  function sendToShoppingList(items: string[]) {
+    if (items.length === 0) {
+      showToast("Nothing to add.");
+      return;
+    }
+
+    try {
+      // The shopping list page merges these into the existing list.
+      localStorage.setItem(
+        "localplate_shopping_inbox",
+        JSON.stringify({ items })
+      );
+      router.push("/shopping-list");
+    } catch (storageError) {
+      console.error("Could not open shopping list:", storageError);
+      showToast("Could not open the shopping list.", "error");
+    }
+  }
+
+  // =========================
+  // Meal plan
+  // =========================
+
+  function updatePlan(next: PlannedMeal[]) {
+    setPlannedMeals(next);
+    setPlanSaved(false);
+  }
+
+  function confirmAddToPlan() {
+    if (!planTarget) return;
+
+    const id = `${pickDay}|${pickSlot}`;
+
+    updatePlan([
+      ...plannedMeals.filter((item) => item.id !== id),
+      {
+        id,
+        day: pickDay,
+        slot: pickSlot,
+        title: recipeTitle(planTarget.meal.heading),
+        markdown: planTarget.meal.markdown,
+        symbol: planTarget.symbol,
+      },
+    ]);
+
+    showToast(`Added to ${pickDay} ${pickSlot}`);
+    setPlanTarget(null);
+  }
+
+  const orderedPlan = MEAL_DAYS.flatMap((day) =>
+    MEAL_SLOTS.flatMap((slot) =>
+      plannedMeals.filter((meal) => meal.day === day && meal.slot === slot)
+    )
+  );
+
+  function planShoppingItems() {
+    const seen = new Set<string>();
+    const items: string[] = [];
+
+    plannedMeals.forEach((meal) => {
+      readListLines(readSection(meal.markdown, "You May Need")).forEach(
+        (item) => {
+          const key = item.toLowerCase();
+          if (seen.has(key)) return;
+          seen.add(key);
+          items.push(item);
+        }
+      );
+    });
+
+    return items;
+  }
+
+  function planTotal() {
+    const symbols = new Set(plannedMeals.map((meal) => meal.symbol));
+    if (symbols.size !== 1) return null;
+
+    const total = plannedMeals.reduce((sum, meal) => {
+      const value = Number((readCost(meal.markdown) ?? "").replace(/,/g, ""));
+      return Number.isFinite(value) ? sum + value : sum;
+    }, 0);
+
+    return total > 0
+      ? `${plannedMeals[0].symbol} ${total.toLocaleString("en-US")}`
+      : null;
+  }
+
+  function buildPlanMarkdown() {
+    const sections = orderedPlan.map(
+      (meal) => `### ${meal.day} — ${meal.slot}\n\n${meal.markdown.trim()}`
+    );
+
+    const total = planTotal();
+    const items = planShoppingItems();
+
+    return [
+      `# My Cooking Plan (${orderedPlan.length} meal${
+        orderedPlan.length > 1 ? "s" : ""
+      })`,
+      ...sections,
+      total ? `**Estimated plan cost:** ${total}` : "",
+      items.length > 0
+        ? `## 🛒 Ingredients\n${items.map(planItemLine).join("\n")}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
+  // Saves the plan in the planner's format so it appears in Saved Plans.
+  async function savePlanToSavedPlans() {
+    if (plannedMeals.length === 0 || savingPlan || planSaved) return;
+
+    setSavingPlan(true);
+
+    const mealPlan = buildPlanMarkdown();
+    const createdAt = new Date().toISOString();
+    const foodType =
+      cuisine === "Pakistani" || cuisine === "Indian" ? cuisine : "Any";
+    const planDiet = ["Normal", "Vegetarian", "High Protein"].includes(diet)
+      ? diet
+      : "Normal";
+    const allergyText = allergies.join(", ");
+
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const { error: saveError } = await supabase
+          .from("saved_plans")
+          .insert({
+            user_id: user.id,
+            meal_plan: mealPlan,
+            food_type: foodType,
+            budget,
+            meal_type: "Dinner",
+            diet: planDiet,
+            time,
+            goal: "Healthy Eating",
+            servings: people,
+            city: "",
+            spice_level: "Medium",
+            allergies: allergyText,
+            dislikes: "",
+            pantry: "",
+            extra_preferences: "",
+            created_at: createdAt,
+            favorite: false,
+            plan_type: "single",
+          });
+
+        if (saveError) throw saveError;
+      }
+
+      let savedPlans: unknown[] = [];
+
+      try {
+        const parsed: unknown = JSON.parse(
+          localStorage.getItem("localplate_saved_plans") || "[]"
+        );
+        savedPlans = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        savedPlans = [];
+      }
+
+      localStorage.setItem(
+        "localplate_saved_plans",
+        JSON.stringify([
+          {
+            id: Date.now(),
+            mealPlan,
+            foodType,
+            budget,
+            mealType: "Dinner",
+            diet: planDiet,
+            time,
+            goal: "Healthy Eating",
+            servings: people,
+            city: "",
+            spiceLevel: "Medium",
+            allergies: allergyText,
+            dislikes: "",
+            pantry: "",
+            extraPreferences: "",
+            createdAt,
+            favorite: false,
+            planType: "single" as const,
+          },
+          ...savedPlans,
+        ])
+      );
+
+      setPlanSaved(true);
+      showToast("Plan saved");
+    } catch (saveError) {
+      console.error("Could not save the cooking plan:", saveError);
+      showToast("Could not save the plan.", "error");
+    } finally {
+      setSavingPlan(false);
+    }
+  }
+
+  // =========================
+  // Tabs
+  // =========================
+
+  function handleTabKeys(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+
+    event.preventDefault();
+
+    const index = TABS.findIndex((item) => item.id === tab);
+    const next =
+      TABS[
+        (index + (event.key === "ArrowRight" ? 1 : TABS.length - 1)) %
+          TABS.length
+      ];
+
+    setTab(next.id);
+    document.getElementById(`cook-tab-${next.id}`)?.focus();
+  }
+
+  const tabCounts: Record<Tab, number> = {
+    results: meals.length,
+    saved: savedRecipes.length,
+    plan: plannedMeals.length,
+  };
+
+  const syncNote = signedIn ? (
+    <p className="mb-3 text-xs text-zinc-500">Synced to your account.</p>
+  ) : (
+    <p className="mb-3 text-xs text-zinc-500">
+      Stored on this device.{" "}
+      <Link href="/login" className="underline hover:text-zinc-800">
+        Sign in to sync
+      </Link>
+    </p>
+  );
+
+  // =========================
+  // Render
+  // =========================
+
   return (
-    <main className="min-h-screen bg-[#fffaf5] px-4 py-8 text-zinc-900 sm:px-6 md:px-8 md:py-12">
-      <div className="mx-auto max-w-6xl">
-        {/* Hero */}
-        <section className="overflow-hidden rounded-[2rem] bg-zinc-950 px-5 py-10 text-white shadow-xl sm:px-8 md:px-12 md:py-14">
-          <div className="max-w-3xl">
-            <span className="inline-flex rounded-full bg-orange-500/15 px-4 py-2 text-sm font-bold text-orange-300 ring-1 ring-orange-400/20">
-              🍳 LocalPlate AI
-            </span>
+    <main className="min-h-screen bg-zinc-50 text-zinc-900">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+          What can I cook?
+        </h1>
 
-            <h1 className="mt-5 text-4xl font-black tracking-tight sm:text-5xl md:text-6xl">
-              What Can I
-              <span className="text-orange-500">
-                {" "}
-                Cook?
-              </span>
-            </h1>
-
-            <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-300 md:text-lg">
-              Apne kitchen mein jo ingredients already
-              hain woh enter karein. LocalPlate AI aapko
-              practical meals batayega jo aap unhi
-              ingredients se bana sakte hain.
-            </p>
-
-            <div className="mt-7 flex flex-wrap gap-2">
-              <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold">
-                🇵🇰 Pakistani-friendly
-              </span>
-              <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold">
-                💰 Budget-aware
-              </span>
-              <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold">
-                ♻️ Less food waste
-              </span>
-              <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold">
-                ⏱️ Quick meals
-              </span>
-            </div>
-          </div>
-        </section>
-
-        {/* Main workspace */}
-        <div className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          {/* Form */}
-          <section className="rounded-[2rem] border border-zinc-100 bg-white p-5 shadow-sm sm:p-7">
+        <div className="mt-6 grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+          {/* Inputs */}
+          <form
+            onSubmit={findMeals}
+            className="space-y-4 rounded-xl border border-zinc-200 bg-white p-5 lg:sticky lg:top-4"
+          >
             <div>
-              <p className="text-sm font-bold text-orange-600">
-                Step 1
-              </p>
+              <label htmlFor="ingredient-input" className={labelClass}>
+                Ingredients
+              </label>
 
-              <h2 className="mt-1 text-2xl font-black">
-                What do you have?
-              </h2>
-
-              <p className="mt-2 text-sm leading-6 text-zinc-500">
-                Ingredients comma se separate karein.
-              </p>
-            </div>
-
-            {/* Starter ingredients */}
-            <div className="mt-5">
-              <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
-                Quick add
-              </p>
-
-              <div className="mt-2 flex flex-wrap gap-2">
-                {starterIngredients.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() =>
-                      addStarterIngredient(item)
-                    }
-                    className="min-h-10 rounded-full border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700 transition hover:bg-orange-100 active:scale-95"
-                  >
-                    + {item}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <form
-              onSubmit={findMeals}
-              className="mt-5 space-y-5"
-            >
-              <div>
-                <label
-                  htmlFor="ingredients"
-                  className="mb-2 block text-sm font-bold"
-                >
-                  Your ingredients
-                </label>
-
-                <textarea
-                  id="ingredients"
-                  value={ingredients}
-                  onChange={(event) =>
-                    setIngredients(event.target.value)
+              <input
+                id="ingredient-input"
+                type="text"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === ",") {
+                    event.preventDefault();
+                    addIngredients(draft);
                   }
-                  placeholder="Chicken, eggs, rice, potatoes, onions..."
-                  rows={5}
-                  maxLength={1500}
-                  className="w-full resize-none rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-4 text-base outline-none transition placeholder:text-zinc-400 focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-100"
-                />
+                }}
+                onBlur={() => addIngredients(draft)}
+                maxLength={60}
+                placeholder="Type an ingredient, press Enter"
+                autoComplete="off"
+                className={fieldClass}
+              />
 
-                <div className="mt-2 flex justify-between text-xs text-zinc-400">
-                  <span>
-                    {ingredientCount} ingredients
-                  </span>
-                  <span>
-                    {ingredients.length}/1500
-                  </span>
-                </div>
-
-                {ingredientCount > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {ingredients
-                      .split(",")
-                      .map((item) => item.trim())
-                      .filter(Boolean)
-                      .map((item) => (
-                        <button
-                          key={item}
-                          type="button"
-                          onClick={() =>
-                            removeIngredient(item)
-                          }
-                          className="rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-200"
-                          title={`Remove ${item}`}
-                        >
-                          {item} ×
-                        </button>
-                      ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Mode */}
-              <div>
-                <p className="mb-3 text-sm font-bold">
-                  What do you want?
-                </p>
-
-                <div className="grid gap-2">
-                  {modes.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setMode(item.id)}
-                      className={`flex min-h-[76px] items-center gap-3 rounded-2xl border p-3 text-left transition active:scale-[0.99] ${
-                        mode === item.id
-                          ? "border-orange-400 bg-orange-50 ring-2 ring-orange-100"
-                          : "border-zinc-200 bg-white hover:border-orange-200"
-                      }`}
+              {ingredients.length > 0 && (
+                <ul className="mt-2.5 flex flex-wrap gap-1.5">
+                  {ingredients.map((item) => (
+                    <li
+                      key={item}
+                      className="inline-flex items-center gap-0.5 rounded-md bg-zinc-100 py-1 pl-2.5 pr-1 text-sm"
                     >
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-xl">
-                        {item.icon}
-                      </span>
+                      {item}
+                      <button
+                        type="button"
+                        onClick={() => removeIngredient(item)}
+                        aria-label={`Remove ${item}`}
+                        className="flex size-5 items-center justify-center rounded text-zinc-500 outline-none hover:bg-zinc-200 hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-orange-500"
+                      >
+                        <Icon name="x" className="size-3" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-                      <span className="min-w-0">
-                        <span className="block text-sm font-bold">
-                          {item.title}
-                        </span>
-
-                        <span className="mt-0.5 block text-xs leading-5 text-zinc-500">
-                          {item.description}
-                        </span>
-                      </span>
-
-                      {mode === item.id && (
-                        <span className="ml-auto text-orange-600">
-                          ✓
-                        </span>
-                      )}
+              {suggestions.length > 0 && (
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {suggestions.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => addIngredients(item)}
+                      className="rounded-md border border-dashed border-zinc-300 px-2 py-1 text-xs text-zinc-600 outline-none transition hover:border-orange-400 hover:text-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500"
+                    >
+                      + {item}
                     </button>
                   ))}
                 </div>
-              </div>
-
-              {/* Settings */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label
-                    htmlFor="budget"
-                    className="mb-2 block text-sm font-bold"
-                  >
-                    Budget
-                  </label>
-
-                  <div className="relative">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-400">
-                      PKR
-                    </span>
-
-                    <input
-                      id="budget"
-                      type="number"
-                      min="0"
-                      max="100000"
-                      value={budget}
-                      onChange={(event) =>
-                        setBudget(event.target.value)
-                      }
-                      className="min-h-12 w-full rounded-xl border border-zinc-200 bg-zinc-50 pl-12 pr-3 outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="time"
-                    className="mb-2 block text-sm font-bold"
-                  >
-                    Max time
-                  </label>
-
-                  <div className="relative">
-                    <input
-                      id="time"
-                      type="number"
-                      min="5"
-                      max="180"
-                      value={time}
-                      onChange={(event) =>
-                        setTime(event.target.value)
-                      }
-                      className="min-h-12 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 pr-12 outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
-                    />
-
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-400">
-                      min
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="people"
-                    className="mb-2 block text-sm font-bold"
-                  >
-                    People
-                  </label>
-
-                  <input
-                    id="people"
-                    type="number"
-                    min="1"
-                    max="20"
-                    value={people}
-                    onChange={(event) =>
-                      setPeople(event.target.value)
-                    }
-                    className="min-h-12 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="diet"
-                    className="mb-2 block text-sm font-bold"
-                  >
-                    Diet
-                  </label>
-
-                  <select
-                    id="diet"
-                    value={diet}
-                    onChange={(event) =>
-                      setDiet(event.target.value)
-                    }
-                    className="min-h-12 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
-                  >
-                    <option>Normal</option>
-                    <option>Vegetarian</option>
-                    <option>High Protein</option>
-                    <option>Low Carb</option>
-                    <option>Vegan</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="extra"
-                  className="mb-2 block text-sm font-bold"
-                >
-                  Anything else?
-                </label>
-
-                <input
-                  id="extra"
-                  value={extra}
-                  onChange={(event) =>
-                    setExtra(event.target.value)
-                  }
-                  maxLength={500}
-                  placeholder="e.g. spicy, Pakistani food, no oven..."
-                  className="min-h-12 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 outline-none focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-100"
-                />
-              </div>
-
-              {error && (
-                <div
-                  role="alert"
-                  className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-700"
-                >
-                  {error}
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={clearAll}
-                  disabled={loading}
-                  className="min-h-12 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Clear
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="min-h-12 rounded-xl bg-orange-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-orange-200 transition hover:bg-orange-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {loading
-                    ? "Finding meals..."
-                    : "🍳 Find Meals"}
-                </button>
-              </div>
-            </form>
-          </section>
-
-          {/* Results */}
-          <section className="min-h-[500px] rounded-[2rem] border border-zinc-100 bg-white p-5 shadow-sm sm:p-7">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-bold text-orange-600">
-                  Step 2
-                </p>
-
-                <h2 className="mt-1 text-2xl font-black">
-                  Your meal ideas
-                </h2>
-              </div>
-
-              {loading && (
-                <div
-                  className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-200 border-t-orange-600"
-                  aria-label="Loading"
-                />
               )}
             </div>
 
-            {!result && !loading && (
-              <div className="mt-8 flex min-h-[400px] flex-col items-center justify-center rounded-3xl border border-dashed border-zinc-200 bg-zinc-50/70 px-6 text-center">
-                <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-orange-100 text-4xl">
-                  🍲
-                </div>
-
-                <h3 className="mt-5 text-xl font-black">
-                  Kitchen se start karein
-                </h3>
-
-                <p className="mt-2 max-w-md text-sm leading-6 text-zinc-500">
-                  Apne available ingredients enter karein
-                  aur LocalPlate AI aapko meal ideas dega.
-                </p>
-
-                <div className="mt-5 flex flex-wrap justify-center gap-2 text-xs font-semibold text-zinc-500">
-                  <span className="rounded-full bg-white px-3 py-2 shadow-sm">
-                    Chicken + Rice
-                  </span>
-                  <span className="rounded-full bg-white px-3 py-2 shadow-sm">
-                    Eggs + Potatoes
-                  </span>
-                  <span className="rounded-full bg-white px-3 py-2 shadow-sm">
-                    Leftover Daal
-                  </span>
-                </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="cuisine" className={labelClass}>
+                  Cuisine
+                </label>
+                <select
+                  id="cuisine"
+                  value={cuisine}
+                  onChange={(event) => setCuisine(event.target.value)}
+                  className={fieldClass}
+                >
+                  {CUISINES.map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
+                </select>
               </div>
-            )}
 
-            {loading && (
-              <div className="mt-8 space-y-4">
-                {[1, 2, 3].map((item) => (
-                  <div
-                    key={item}
-                    className="animate-pulse rounded-3xl border border-zinc-100 p-5"
-                  >
-                    <div className="h-5 w-2/3 rounded bg-zinc-200" />
-                    <div className="mt-4 h-3 w-1/3 rounded bg-zinc-100" />
-                    <div className="mt-5 h-3 w-full rounded bg-zinc-100" />
-                    <div className="mt-2 h-3 w-5/6 rounded bg-zinc-100" />
-                    <div className="mt-2 h-3 w-4/6 rounded bg-zinc-100" />
+              <div>
+                <label htmlFor="diet" className={labelClass}>
+                  Diet
+                </label>
+                <select
+                  id="diet"
+                  value={diet}
+                  onChange={(event) => setDiet(event.target.value)}
+                  className={fieldClass}
+                >
+                  {DIETS.map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="time" className={labelClass}>
+                  Time (min)
+                </label>
+                <input
+                  id="time"
+                  type="text"
+                  inputMode="numeric"
+                  value={time}
+                  onChange={(event) =>
+                    setTime(event.target.value.replace(/\D/g, "").slice(0, 3))
+                  }
+                  className={fieldClass}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="people" className={labelClass}>
+                  People
+                </label>
+                <input
+                  id="people"
+                  type="text"
+                  inputMode="numeric"
+                  value={people}
+                  onChange={(event) =>
+                    setPeople(event.target.value.replace(/\D/g, "").slice(0, 2))
+                  }
+                  className={fieldClass}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="budget" className={labelClass}>
+                Budget
+              </label>
+
+              <div className="flex gap-2">
+                <select
+                  aria-label="Currency"
+                  value={currency}
+                  onChange={(event) =>
+                    changeCurrency(event.target.value as CurrencyCode)
+                  }
+                  className={`${fieldClass} w-24 shrink-0`}
+                >
+                  {(Object.keys(CURRENCIES) as CurrencyCode[]).map((code) => (
+                    <option key={code}>{code}</option>
+                  ))}
+                </select>
+
+                <input
+                  id="budget"
+                  type="text"
+                  inputMode="numeric"
+                  value={budget}
+                  onChange={(event) =>
+                    setBudget(event.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  className={fieldClass}
+                />
+              </div>
+            </div>
+
+            <details className="group rounded-lg border border-zinc-200">
+              <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
+                <span>
+                  More options
+                  {allergies.length > 0 && (
+                    <span className="ml-1.5 text-xs font-normal text-zinc-500">
+                      {allergies.length} allergy filter
+                      {allergies.length > 1 ? "s" : ""}
+                    </span>
+                  )}
+                </span>
+                <Icon
+                  name="chevron"
+                  className="size-4 text-zinc-400 transition-transform group-open:rotate-180"
+                />
+              </summary>
+
+              <div className="space-y-4 border-t border-zinc-200 p-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="difficulty" className={labelClass}>
+                      Difficulty
+                    </label>
+                    <select
+                      id="difficulty"
+                      value={difficulty}
+                      onChange={(event) => setDifficulty(event.target.value)}
+                      className={fieldClass}
+                    >
+                      {DIFFICULTIES.map((item) => (
+                        <option key={item}>{item}</option>
+                      ))}
+                    </select>
                   </div>
-                ))}
+
+                  <div>
+                    <label htmlFor="meal-type" className={labelClass}>
+                      Meal
+                    </label>
+                    <select
+                      id="meal-type"
+                      value={mealType}
+                      onChange={(event) => setMealType(event.target.value)}
+                      className={fieldClass}
+                    >
+                      {MEAL_TYPES.map((item) => (
+                        <option key={item}>{item}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="mode" className={labelClass}>
+                    Goal
+                  </label>
+                  <select
+                    id="mode"
+                    value={mode}
+                    onChange={(event) => setMode(event.target.value as Mode)}
+                    className={fieldClass}
+                  >
+                    {MODES.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <span className={labelClass}>Allergies</span>
+                  <div
+                    className="flex flex-wrap gap-1.5"
+                    role="group"
+                    aria-label="Allergies"
+                  >
+                    {ALLERGIES.map((item) => {
+                      const active = allergies.includes(item);
+
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => toggleAllergy(item)}
+                          aria-pressed={active}
+                          className={`rounded-md border px-2.5 py-1 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-orange-500 ${
+                            active
+                              ? "border-red-500 bg-red-50 text-red-700"
+                              : "border-zinc-300 text-zinc-600 hover:border-zinc-400"
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="notes" className={labelClass}>
+                    Notes
+                  </label>
+                  <input
+                    id="notes"
+                    type="text"
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    maxLength={200}
+                    placeholder="e.g. less spicy"
+                    className={fieldClass}
+                  />
+                </div>
+              </div>
+            </details>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={loading}
+                className="h-11 flex-1 rounded-lg bg-orange-600 px-4 text-sm font-semibold text-white outline-none transition hover:bg-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? "Finding recipes…" : "Find recipes"}
+              </button>
+
+              {(ingredients.length > 0 || result) && (
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="h-11 rounded-lg px-3 text-sm text-zinc-500 outline-none hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-orange-500"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {error && (
+              <p
+                role="alert"
+                className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"
+              >
+                {error}
+              </p>
+            )}
+          </form>
+
+          {/* Output */}
+          <section ref={resultsRef} aria-label="Recipes" className="min-w-0">
+            <div
+              role="tablist"
+              aria-label="Views"
+              onKeyDown={handleTabKeys}
+              className="flex gap-1 border-b border-zinc-200"
+            >
+              {TABS.map((item) => {
+                const active = tab === item.id;
+                const count = tabCounts[item.id];
+
+                return (
+                  <button
+                    key={item.id}
+                    id={`cook-tab-${item.id}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    aria-controls={`cook-panel-${item.id}`}
+                    tabIndex={active ? 0 : -1}
+                    onClick={() => setTab(item.id)}
+                    className={`-mb-px border-b-2 px-3 py-2.5 text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-orange-500 ${
+                      active
+                        ? "border-orange-600 text-zinc-900"
+                        : "border-transparent text-zinc-500 hover:text-zinc-800"
+                    }`}
+                  >
+                    {item.label}
+                    {count > 0 && (
+                      <span className="ml-1.5 text-xs text-zinc-400">
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Results */}
+            {tab === "results" && (
+              <div
+                id="cook-panel-results"
+                role="tabpanel"
+                aria-labelledby="cook-tab-results"
+                className="mt-4"
+              >
+                {loading ? (
+                  <div className="space-y-3" role="status" aria-live="polite">
+                    <span className="sr-only">Finding recipes</span>
+                    {[0, 1, 2].map((item) => (
+                      <div
+                        key={item}
+                        className="h-[72px] animate-pulse rounded-xl bg-zinc-200/70"
+                      />
+                    ))}
+                  </div>
+                ) : meals.length > 0 ? (
+                  <div className="space-y-3">
+                    {meals.map((meal, index) => (
+                      <RecipeCard
+                        key={`${meal.heading}-${index}`}
+                        meal={meal}
+                        basePeople={resultPeople > 0 ? resultPeople : 1}
+                        symbol={resultSymbol}
+                        saved={isSaved(meal.heading)}
+                        defaultOpen={index === 0}
+                        onSave={() =>
+                          toggleSave(meal, resultPeople, resultSymbol)
+                        }
+                        onPlan={() =>
+                          setPlanTarget({ meal, symbol: resultSymbol })
+                        }
+                        onShop={sendToShoppingList}
+                        onCopy={() => copyText(meal.markdown)}
+                      />
+                    ))}
+                  </div>
+                ) : result ? (
+                  <div className="rounded-xl border border-zinc-200 bg-white p-4">
+                    <p className="mb-3 text-xs text-zinc-500">
+                      Recipes could not be structured. Showing the raw reply.
+                    </p>
+                    <Markdown text={result} />
+                  </div>
+                ) : (
+                  <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500">
+                    Add ingredients, then press Find recipes.
+                  </p>
+                )}
               </div>
             )}
 
-            {result && !loading && (
-              <div className="mt-7">
-                <div className="rounded-3xl border border-zinc-100 bg-[#fffaf5] p-5 sm:p-7">
-                  <ReactMarkdown
-                    components={{
-                      h2: ({ children }) => (
-                        <h3 className="mb-4 mt-8 text-xl font-black first:mt-0">
-                          {children}
-                        </h3>
-                      ),
-                      p: ({ children }) => (
-                        <p className="mb-4 text-sm leading-7 text-zinc-700">
-                          {children}
-                        </p>
-                      ),
-                      ul: ({ children }) => (
-                        <ul className="mb-5 list-disc space-y-1 pl-5 text-sm leading-6 text-zinc-700">
-                          {children}
-                        </ul>
-                      ),
-                      ol: ({ children }) => (
-                        <ol className="mb-5 list-decimal space-y-2 pl-5 text-sm leading-6 text-zinc-700">
-                          {children}
-                        </ol>
-                      ),
-                      li: ({ children }) => (
-                        <li>{children}</li>
-                      ),
-                      strong: ({ children }) => (
-                        <strong className="font-bold text-zinc-900">
-                          {children}
-                        </strong>
-                      ),
-                    }}
-                  >
-                    {result}
-                  </ReactMarkdown>
-                </div>
+            {/* Saved */}
+            {tab === "saved" && (
+              <div
+                id="cook-panel-saved"
+                role="tabpanel"
+                aria-labelledby="cook-tab-saved"
+                className="mt-4"
+              >
+                {syncNote}
 
-                <div className="mt-4 rounded-2xl bg-zinc-950 p-5 text-white">
-                  <p className="text-sm font-bold">
-                    💡 Next step
+                {savedRecipes.length > 0 ? (
+                  <div className="space-y-3">
+                    {savedRecipes.map((recipe) => {
+                      const meal: Block = splitBlocks(recipe.markdown)
+                        .blocks[0] ?? {
+                        heading: recipe.title,
+                        body: recipe.markdown,
+                        markdown: recipe.markdown,
+                      };
+                      const symbol = recipe.symbol ?? "Rs.";
+
+                      return (
+                        <RecipeCard
+                          key={recipe.id}
+                          meal={meal}
+                          basePeople={recipe.people && recipe.people > 0 ? recipe.people : 2}
+                          symbol={symbol}
+                          saved
+                          onSave={() =>
+                            setSavedRecipes(
+                              savedRecipes.filter((item) => item.id !== recipe.id)
+                            )
+                          }
+                          onPlan={() => setPlanTarget({ meal, symbol })}
+                          onShop={sendToShoppingList}
+                          onCopy={() => copyText(recipe.markdown)}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500">
+                    No saved recipes.
                   </p>
+                )}
+              </div>
+            )}
 
-                  <p className="mt-2 text-sm leading-6 text-zinc-400">
-                    Jo meal pasand aaye usay Planner mein
-                    recreate karein aur zaroorat ho to
-                    Shopping List se missing ingredients
-                    manage karein.
+            {/* Plan */}
+            {tab === "plan" && (
+              <div
+                id="cook-panel-plan"
+                role="tabpanel"
+                aria-labelledby="cook-tab-plan"
+                className="mt-4"
+              >
+                {syncNote}
+
+                {orderedPlan.length > 0 ? (
+                  <>
+                    <div className="space-y-4">
+                      {MEAL_DAYS.filter((day) =>
+                        orderedPlan.some((meal) => meal.day === day)
+                      ).map((day) => (
+                        <div key={day}>
+                          <SectionLabel>{day}</SectionLabel>
+
+                          <ul className="mt-1.5 divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
+                            {orderedPlan
+                              .filter((meal) => meal.day === day)
+                              .map((meal) => {
+                                const mealCost = readCost(meal.markdown);
+
+                                return (
+                                  <li
+                                    key={meal.id}
+                                    className="flex items-center gap-3 py-1.5 pl-4 pr-2 text-sm"
+                                  >
+                                    <span className="w-20 shrink-0 text-zinc-500">
+                                      {meal.slot}
+                                    </span>
+                                    <span className="min-w-0 flex-1 truncate">
+                                      {meal.title}
+                                    </span>
+                                    {mealCost && (
+                                      <span className="shrink-0 text-zinc-500">
+                                        {meal.symbol} {mealCost}
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        updatePlan(
+                                          plannedMeals.filter(
+                                            (item) => item.id !== meal.id
+                                          )
+                                        )
+                                      }
+                                      aria-label={`Remove ${meal.title}`}
+                                      title="Remove"
+                                      className={iconButton}
+                                    >
+                                      <Icon name="x" />
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap items-center gap-2">
+                      {planTotal() && (
+                        <span className="mr-auto text-sm text-zinc-600">
+                          Estimated cost{" "}
+                          <span className="font-semibold text-zinc-900">
+                            {planTotal()}
+                          </span>
+                        </span>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => sendToShoppingList(planShoppingItems())}
+                        className="h-10 rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium outline-none transition hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-orange-500"
+                      >
+                        Shopping list
+                      </button>
+
+                      {planSaved ? (
+                        <Link
+                          href="/saved-plans"
+                          className="inline-flex h-10 items-center rounded-lg border border-green-300 bg-green-50 px-4 text-sm font-medium text-green-700 outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                        >
+                          Saved. Open
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={savePlanToSavedPlans}
+                          disabled={savingPlan}
+                          className="h-10 rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium outline-none transition hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-orange-500 disabled:opacity-60"
+                        >
+                          {savingPlan ? "Saving…" : "Save plan"}
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updatePlan([]);
+                          showToast("Plan cleared");
+                        }}
+                        aria-label="Clear plan"
+                        title="Clear plan"
+                        className={`${iconButton} size-10 hover:text-red-600`}
+                      >
+                        <Icon name="trash" />
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500">
+                    No meals planned.
                   </p>
-
-                  <a
-                    href="/planner"
-                    className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-orange-600 px-5 py-3 text-sm font-bold text-white hover:bg-orange-700"
-                  >
-                    Open Meal Planner →
-                  </a>
-                </div>
+                )}
               </div>
             )}
           </section>
         </div>
-
-        {/* SEO content */}
-        <section className="mt-8 rounded-[2rem] border border-zinc-100 bg-white p-6 shadow-sm sm:p-8">
-          <h2 className="text-2xl font-black">
-            Turn your ingredients into meal ideas
-          </h2>
-
-          <p className="mt-3 max-w-4xl text-sm leading-7 text-zinc-600">
-            LocalPlate AI helps you discover practical meal ideas
-            from ingredients you already have at home. It can
-            prioritize Pakistani and South Asian meals, consider
-            your budget and cooking time, and suggest useful
-            substitutions when an ingredient is missing.
-          </p>
-
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              ["🥕", "Use what you have", "Reduce unnecessary grocery purchases."],
-              ["💰", "Stay budget-aware", "Get approximate Pakistani Rupee costs."],
-              ["♻️", "Reduce waste", "Turn leftovers into useful meals."],
-              ["⏱️", "Save time", "Find meals that fit your available time."],
-            ].map(([icon, title, description]) => (
-              <div
-                key={title}
-                className="rounded-2xl bg-zinc-50 p-4"
-              >
-                <div className="text-2xl">{icon}</div>
-                <h3 className="mt-3 font-bold">
-                  {title}
-                </h3>
-                <p className="mt-1 text-sm leading-6 text-zinc-500">
-                  {description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
       </div>
+
+      {/* Add to plan dialog */}
+      {planTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+          onClick={() => setPlanTarget(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="plan-dialog-title"
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl"
+          >
+            <h2 id="plan-dialog-title" className="font-semibold">
+              Add to plan
+            </h2>
+
+            <p className="mt-0.5 truncate text-sm text-zinc-500">
+              {recipeTitle(planTarget.meal.heading)}
+            </p>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="plan-day" className={labelClass}>
+                  Day
+                </label>
+                <select
+                  id="plan-day"
+                  value={pickDay}
+                  onChange={(event) => setPickDay(event.target.value)}
+                  className={fieldClass}
+                >
+                  {MEAL_DAYS.map((day) => (
+                    <option key={day}>{day}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="plan-slot" className={labelClass}>
+                  Meal
+                </label>
+                <select
+                  id="plan-slot"
+                  value={pickSlot}
+                  onChange={(event) => setPickSlot(event.target.value)}
+                  className={fieldClass}
+                >
+                  {MEAL_SLOTS.map((slot) => (
+                    <option key={slot}>{slot}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {plannedMeals.some((meal) => meal.id === `${pickDay}|${pickSlot}`) && (
+              <p className="mt-3 text-xs text-amber-700">
+                This slot is taken. It will be replaced.
+              </p>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPlanTarget(null)}
+                className="h-10 rounded-lg px-4 text-sm text-zinc-600 outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-orange-500"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                autoFocus
+                onClick={confirmAddToPlan}
+                className="h-10 rounded-lg bg-orange-600 px-5 text-sm font-semibold text-white outline-none hover:bg-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg px-4 py-2.5 text-sm font-medium text-white shadow-lg ${
+            toast.tone === "error" ? "bg-red-600" : "bg-zinc-900"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
     </main>
   );
 }

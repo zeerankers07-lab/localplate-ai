@@ -116,6 +116,13 @@ function parseCost(value: string): number | null {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
+// Smallest realistic price for one item is Rs. 50. Prices are rounded to Rs. 10.
+const MIN_ITEM_PRICE = 50;
+
+function estimatePrice(value: number) {
+    return Math.max(MIN_ITEM_PRICE, Math.round(value / 10) * 10);
+}
+
 function extractSection(text: string) {
     const weekly = text.match(
         /#{1,6}\s*🛒\s*Weekly\s+Shopping\s+List\s*[\r\n]+([\s\S]*?)(?=\n#{1,6}\s*💰\s*Weekly\s+Cost\s+Summary|\n#{1,6}\s+\S|$)/i
@@ -169,7 +176,8 @@ function parseShoppingItems(text: string): ShoppingItem[] {
         }
 
         const name = parts[0] || clean;
-        const cost = parseCost(clean);
+        const rawCost = parseCost(clean);
+        const cost = rawCost === null ? null : estimatePrice(rawCost);
 
         let quantity = parts[1] || "";
 
@@ -207,6 +215,100 @@ function itemText(
     const status = includeStatus && purchased ? " ✓" : "";
 
     return `- ${item.name}${quantity}${cost}${status}`;
+}
+
+const INBOX_KEY = "localplate_shopping_inbox";
+
+const INCOMING_UNITS =
+    "kgs?|g|gm|grams?|mg|l|liters?|litres?|ml|cups?|tbsp|tsp|tablespoons?|teaspoons?|pieces?|pcs?|cloves?|slices?|pinch|bunch|cans?|packets?|dozen";
+
+const INCOMING_QUANTITY = new RegExp(
+    `^(\\d+\\s+\\d+/\\d+|\\d+/\\d+|\\d+(?:\\.\\d+)?)\\s*(${INCOMING_UNITS})?\\b\\s*(?:of\\s+)?(.+)$`,
+    "i"
+);
+
+function capitalize(value: string) {
+    const trimmed = value.trim();
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
+// Turns "500 g chicken" or "Chicken — 500 g" into a name and quantity.
+function parseIncomingItem(raw: string) {
+    const clean = raw.replace(/\*\*/g, "").replace(/\s+/g, " ").trim();
+    if (!clean) return null;
+
+    if (clean.includes(" — ")) {
+        const [name, quantity] = clean.split(" — ");
+        return name.trim()
+            ? { name: capitalize(name), quantity: (quantity || "").trim() }
+            : null;
+    }
+
+    const match = clean.match(INCOMING_QUANTITY);
+    const name = (match ? match[3] : clean).trim();
+    if (!name) return null;
+
+    const quantity = match
+        ? `${match[1]}${match[2] ? ` ${match[2]}` : ""}`.trim()
+        : "";
+
+    return { name: capitalize(name), quantity };
+}
+
+// "Eggs" and "egg" count as the same ingredient.
+function singularKey(name: string) {
+    const value = normalize(name);
+    return value.length > 3 && value.endsWith("s") ? value.slice(0, -1) : value;
+}
+
+function parseQuantityValue(quantity: string) {
+    const match = quantity
+        .trim()
+        .match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?)\s*([a-zA-Z]*)$/);
+
+    if (!match) return null;
+
+    const raw = match[1];
+    let value: number;
+
+    if (/^\d+\s+\d+\/\d+$/.test(raw)) {
+        const [whole, fraction] = raw.split(/\s+/);
+        const [top, bottom] = fraction.split("/").map(Number);
+        value = Number(whole) + top / bottom;
+    } else if (raw.includes("/")) {
+        const [top, bottom] = raw.split("/").map(Number);
+        value = top / bottom;
+    } else {
+        value = Number(raw);
+    }
+
+    if (!Number.isFinite(value)) return null;
+
+    return { value, unit: match[2].toLowerCase() };
+}
+
+// Adds quantities when the unit matches ("500 g" + "250 g" = "750 g").
+function mergeQuantity(existing: string, incoming: string) {
+    if (!incoming) return existing;
+    if (!existing) return incoming;
+
+    const a = parseQuantityValue(existing);
+    const b = parseQuantityValue(incoming);
+
+    if (a && b && a.unit === b.unit) {
+        const total = a.value + b.value;
+        const text =
+            total >= 10
+                ? String(Math.round(total))
+                : String(Math.round(total * 10) / 10);
+        const unit = existing.trim().match(/([a-zA-Z]+)$/)?.[1] ?? "";
+
+        return unit ? `${text} ${unit}` : text;
+    }
+
+    if (normalize(existing).includes(normalize(incoming))) return existing;
+
+    return `${existing} + ${incoming}`;
 }
 
 export default function ShoppingListPage() {
@@ -639,6 +741,99 @@ export default function ShoppingListPage() {
             return true;
         });
     }, [parsedItems, customItems]);
+
+    // Items sent from "What Can I Cook?" are merged into the list.
+    // They never replace the existing plan, checked items or prices.
+    const inboxApplied = useRef(false);
+
+    useEffect(() => {
+        if (!loaded || !dbLoaded || inboxApplied.current) return;
+        inboxApplied.current = true;
+
+        let raw: string | null = null;
+
+        try {
+            raw = localStorage.getItem(INBOX_KEY);
+        } catch {
+            return;
+        }
+
+        if (!raw) return;
+
+        try {
+            localStorage.removeItem(INBOX_KEY);
+
+            const payload = JSON.parse(raw) as { items?: unknown };
+            const incoming = Array.isArray(payload.items)
+                ? payload.items
+                    .filter((item): item is string => typeof item === "string")
+                    .slice(0, 100)
+                : [];
+
+            const listKeys = new Set(
+                parsedItems.map((item) => singularKey(item.name))
+            );
+            const next = [...customItems];
+
+            let added = 0;
+            let merged = 0;
+            let skipped = 0;
+
+            incoming.forEach((rawItem) => {
+                const parsed = parseIncomingItem(rawItem);
+                if (!parsed) return;
+
+                const key = singularKey(parsed.name);
+                const index = next.findIndex(
+                    (item) => singularKey(item.name) === key
+                );
+
+                if (index >= 0) {
+                    next[index] = {
+                        ...next[index],
+                        quantity: mergeQuantity(
+                            next[index].quantity,
+                            parsed.quantity
+                        ),
+                    };
+                    merged += 1;
+                } else if (listKeys.has(key)) {
+                    skipped += 1;
+                } else {
+                    next.push({
+                        id: `cook-${Date.now()}-${Math.random()
+                            .toString(36)
+                            .slice(2, 8)}`,
+                        name: parsed.name,
+                        quantity: parsed.quantity,
+                        cost: null,
+                    });
+                    listKeys.add(key);
+                    added += 1;
+                }
+            });
+
+            if (added + merged + skipped === 0) return;
+
+            setCustomItems(next);
+            localStorage.setItem(
+                "localplate_custom_items",
+                JSON.stringify(next)
+            );
+
+            const parts = [
+                added > 0 ? `${added} added` : "",
+                merged > 0 ? `${merged} merged` : "",
+                skipped > 0 ? `${skipped} already on your list` : "",
+            ].filter(Boolean);
+
+            showToast(`From What Can I Cook?: ${parts.join(", ")}`, "success", undefined, 5000);
+        } catch (error) {
+            console.error("Could not merge incoming items:", error);
+        }
+        // Runs once, after the saved list has finished loading.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loaded, dbLoaded]);
 
     const getEffectiveCost = (item: ShoppingItem) => {
         return Object.prototype.hasOwnProperty.call(manualPrices, item.id)
@@ -1271,33 +1466,15 @@ export default function ShoppingListPage() {
                     </div>
                 </header>
 
-                <section className="rounded-[2rem] bg-zinc-950 px-6 py-8 text-white shadow-xl md:px-10 md:py-10">
-                    <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-                        <div>
-                            <span className="inline-flex rounded-full bg-orange-500/15 px-4 py-2 text-sm font-semibold text-orange-300 ring-1 ring-orange-400/20">
-                                🛒 Smart Shopping Workspace
-                            </span>
+                <section>
+                    <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                        Shopping list
+                    </h1>
 
-                            <h1 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">
-                                Shop
-                                <span className="text-orange-500">
-                                    {" "}smarter.
-                                </span>
-                            </h1>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                            <span className="rounded-full bg-white/10 px-4 py-2 text-sm">
-                                {totalItems} items
-                            </span>
-                            <span className="rounded-full bg-white/10 px-4 py-2 text-sm">
-                                {categoriesUsed} categories
-                            </span>
-                            <span className="rounded-full bg-white/10 px-4 py-2 text-sm">
-                                {syncing ? "☁️ Syncing..." : "☁️ Saved"}
-                            </span>
-                        </div>
-                    </div>
+                    <p className="mt-1.5 text-sm text-zinc-500">
+                        {totalItems} items · {categoriesUsed} categories ·{" "}
+                        {syncing ? "Syncing…" : "Saved"}
+                    </p>
                 </section>
 
                 <section className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">

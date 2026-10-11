@@ -1160,7 +1160,7 @@ Monday, Tuesday, Wednesday, Thursday, Friday, Saturday and Sunday.
 
 4. Keep the complete estimated weekly cost within PKR ${budget}.
 
-5. Use realistic approximate Pakistani Rupee prices.
+5. Use realistic approximate Pakistani Rupee prices. Never estimate any single ingredient below Rs. 50 (the smallest note is Rs. 10) and round every price to the nearest Rs. 10.
 
 6. Never claim prices are exact live store prices.
 
@@ -1666,26 +1666,10 @@ Do not return an explanation before the weekly plan.
       <div className="mx-auto max-w-6xl">
         {/* Header */}
 
-        <section className="text-center">
-          <div className="mx-auto inline-flex rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-700">
-            📅 Smart Weekly Planning
-          </div>
-
-          <h1 className="mt-5 text-4xl font-bold tracking-tight md:text-6xl">
-            Plan your whole week,
-            <span className="text-orange-600">
-              {" "}
-              smarter.
-            </span>
+        <section>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            Weekly plan
           </h1>
-
-          <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-zinc-600">
-            Tell LocalPlate AI your budget, diet and
-            preferences, and get a practical 7-day
-            meal plan with smart substitutions,
-            leftover ideas, prep times and a combined
-            shopping list.
-          </p>
         </section>
 
         {/* Error */}
