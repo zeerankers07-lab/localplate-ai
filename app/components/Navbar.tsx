@@ -131,9 +131,6 @@ export default function Navbar() {
                                     : pathname === link.href ||
                                       pathname.startsWith(`${link.href}/`));
 
-                            // Home link: show only the icon on mobile, even when active.
-                            const isHome = link.href === "/";
-
                             return (
                                 <Link
                                     key={link.href}
@@ -149,15 +146,7 @@ export default function Navbar() {
                                     <span className="text-[15px] leading-none">
                                         {link.icon}
                                     </span>
-                                    <span
-                                        className={
-                                            isHome
-                                                ? "hidden lg:inline"
-                                                : isActive
-                                                ? "inline"
-                                                : "hidden lg:inline"
-                                        }
-                                    >
+                                    <span className="hidden lg:inline">
                                         {t(link.label)}
                                     </span>
                                 </Link>
