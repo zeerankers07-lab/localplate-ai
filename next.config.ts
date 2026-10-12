@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Do not reveal the framework in the X-Powered-By header.
+  poweredByHeader: false,
+
   turbopack: {
     root: __dirname,
   },
@@ -37,6 +40,14 @@ const nextConfig: NextConfig = {
           {
             key: "Cross-Origin-Resource-Policy",
             value: "same-origin",
+          },
+          {
+            // Blocks clickjacking, <base> tag injection, form hijacking
+            // and plugins. Scripts and styles are not restricted here,
+            // so nothing in the app can break.
+            key: "Content-Security-Policy",
+            value:
+              "frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'",
           },
         ],
       },

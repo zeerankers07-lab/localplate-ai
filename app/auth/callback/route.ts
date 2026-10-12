@@ -7,8 +7,8 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/planner";
 
-  const safeNext =
-    next.startsWith("/") && !next.startsWith("//") ? next : "/planner";
+  // Only allow paths on this site. Blocks "//host" and "/\\host".
+  const safeNext = /^\/(?![/\\])/.test(next) ? next : "/planner";
 
   if (code) {
     const supabase = await createClient();
