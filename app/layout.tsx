@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "./components/Navbar";
+import FeedbackWidget from "./components/FeedbackWidget";
+import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -65,10 +67,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-[#fffaf5] text-zinc-900 antialiased">
-        <Navbar />
-        {children}
+        <LanguageProvider>
+          <Navbar />
+          {children}
+          <FeedbackWidget />
+        </LanguageProvider>
       </body>
     </html>
   );

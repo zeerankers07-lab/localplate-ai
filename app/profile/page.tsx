@@ -3,8 +3,10 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 
 export default function ProfilePage() {
+  const { t } = useI18n();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -46,7 +48,7 @@ export default function ProfilePage() {
         console.error("Failed to load profile:", err);
 
         if (!cancelled) {
-          setError("Profile load nahi ho saka. Please try again.");
+          setError(t("pr.loadFail"));
         }
       } finally {
         if (!cancelled) {
@@ -71,12 +73,12 @@ export default function ProfilePage() {
     const trimmedName = name.trim();
 
     if (!trimmedName) {
-      setError("Please enter your name.");
+      setError(t("pr.needName"));
       return;
     }
 
     if (trimmedName === originalName) {
-      setMessage("Profile already up to date.");
+      setMessage(t("pr.upToDate"));
       return;
     }
 
@@ -107,14 +109,14 @@ export default function ProfilePage() {
 
       setName(trimmedName);
       setOriginalName(trimmedName);
-      setMessage("Profile updated successfully.");
+      setMessage(t("pr.updated"));
     } catch (err) {
       console.error("Failed to update profile:", err);
 
       setError(
         err instanceof Error
           ? err.message
-          : "Profile update nahi ho saka. Please try again."
+          : t("pr.updateFail")
       );
     } finally {
       setSaving(false);
@@ -141,7 +143,7 @@ export default function ProfilePage() {
     } catch (err) {
       console.error("Logout failed:", err);
 
-      setError("Logout nahi ho saka. Please try again.");
+      setError(t("pr.logoutFail"));
       setLoggingOut(false);
     }
   }
@@ -153,7 +155,7 @@ export default function ProfilePage() {
           <div className="rounded-3xl border border-zinc-100 bg-white px-8 py-7 text-center shadow-lg shadow-zinc-200/30">
             <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-zinc-200 border-t-orange-600" />
             <p className="mt-4 text-sm font-medium text-zinc-500">
-              Loading your profile...
+              {t("pr.loading")}
             </p>
           </div>
         </div>
@@ -170,7 +172,7 @@ export default function ProfilePage() {
             onClick={() => router.back()}
             className="inline-flex items-center rounded-full border border-orange-200 bg-white px-5 py-2.5 text-sm font-semibold text-orange-600 shadow-sm transition hover:border-orange-400 hover:bg-orange-50"
           >
-            ← Back
+            {t("pr.back")}
           </button>
         </div>
 
@@ -188,11 +190,10 @@ export default function ProfilePage() {
                   LocalPlate AI
                 </p>
                 <h1 className="mt-2 text-4xl font-bold tracking-tight md:text-5xl">
-                  Your Profile
+                  {t("pr.title")}
                 </h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600 md:text-base">
-                  Manage your account name and view the email connected to
-                  your LocalPlate AI account.
+                  {t("pr.sub")}
                 </p>
               </div>
             </div>
@@ -205,7 +206,7 @@ export default function ProfilePage() {
                   htmlFor="profile-name"
                   className="text-sm font-bold text-zinc-800"
                 >
-                  Your name
+                  {t("pr.name")}
                 </label>
 
                 <input
@@ -213,7 +214,7 @@ export default function ProfilePage() {
                   type="text"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder="Enter your name"
+                  placeholder={t("pr.phName")}
                   autoComplete="name"
                   className="mt-2 w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-5 py-4 text-sm outline-none transition focus:border-orange-500 focus:bg-white focus:ring-4 focus:ring-orange-100"
                 />
@@ -224,7 +225,7 @@ export default function ProfilePage() {
                   htmlFor="profile-email"
                   className="text-sm font-bold text-zinc-800"
                 >
-                  Email address
+                  {t("pr.email")}
                 </label>
 
                 <input
@@ -236,7 +237,7 @@ export default function ProfilePage() {
                 />
 
                 <p className="mt-2 text-xs leading-5 text-zinc-400">
-                  Email is managed by your authentication account.
+                  {t("pr.emailNote")}
                 </p>
               </div>
 
@@ -263,17 +264,17 @@ export default function ProfilePage() {
                 disabled={saving}
                 className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-orange-600 px-6 py-4 text-sm font-bold text-white shadow-md shadow-orange-200 transition hover:-translate-y-0.5 hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {saving ? "Saving..." : "Save Profile"}
+                {saving ? t("pr.saving") : t("pr.save")}
               </button>
             </form>
 
             <aside className="rounded-3xl border border-zinc-100 bg-[#fffaf5] p-6">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-400">
-                Account
+                {t("pr.account")}
               </p>
 
               <h2 className="mt-2 text-xl font-bold text-zinc-900">
-                Quick actions
+                {t("pr.quick")}
               </h2>
 
               <div className="mt-5 space-y-3">
@@ -282,7 +283,7 @@ export default function ProfilePage() {
                   onClick={() => router.push("/planner")}
                   className="w-full rounded-2xl border border-orange-200 bg-white px-5 py-3.5 text-left text-sm font-bold text-orange-700 transition hover:border-orange-400 hover:bg-orange-50"
                 >
-                  🍽️ Create Meal Plan
+                  {t("pr.createPlan")}
                 </button>
 
                 <button
@@ -290,7 +291,7 @@ export default function ProfilePage() {
                   onClick={() => router.push("/weekly-plan")}
                   className="w-full rounded-2xl border border-zinc-200 bg-white px-5 py-3.5 text-left text-sm font-bold text-zinc-700 transition hover:bg-zinc-50"
                 >
-                  📅 Weekly Plan
+                  {t("pr.weekly")}
                 </button>
 
                 <button
@@ -298,7 +299,7 @@ export default function ProfilePage() {
                   onClick={() => router.push("/saved-plans")}
                   className="w-full rounded-2xl border border-zinc-200 bg-white px-5 py-3.5 text-left text-sm font-bold text-zinc-700 transition hover:bg-zinc-50"
                 >
-                  💾 Saved Plans
+                  {t("pr.saved")}
                 </button>
 
                 <button
@@ -307,7 +308,7 @@ export default function ProfilePage() {
                   disabled={loggingOut}
                   className="w-full rounded-2xl bg-zinc-900 px-5 py-3.5 text-left text-sm font-bold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {loggingOut ? "Logging out..." : "↪ Logout"}
+                  {loggingOut ? t("nav.loggingOut") : t("pr.logout")}
                 </button>
               </div>
             </aside>

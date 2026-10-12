@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 
 function MailIcon() {
   return (
@@ -23,6 +24,7 @@ function LockIcon() {
 }
 
 export default function ForgotPasswordPage() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -34,7 +36,7 @@ export default function ForgotPasswordPage() {
     setMessage("");
 
     if (!email.trim()) {
-      setError("Please enter your email address.");
+      setError(t("fp.needEmail"));
       return;
     }
 
@@ -48,9 +50,9 @@ export default function ForgotPasswordPage() {
 
       if (resetError) throw resetError;
 
-      setMessage("Password reset email sent. Please check your inbox and open the reset link.");
+      setMessage(t("fp.sent"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to send password reset email.");
+      setError(err instanceof Error ? err.message : t("fp.fail"));
     } finally {
       setLoading(false);
     }
@@ -80,9 +82,9 @@ export default function ForgotPasswordPage() {
                 <LockIcon />
               </div>
               <p className="text-xs font-bold tracking-[0.22em] text-blue-700">LOCALPLATE AI</p>
-              <h1 className="mt-2 text-[28px] font-bold tracking-tight sm:text-3xl">Forgot password?</h1>
+              <h1 className="mt-2 text-[28px] font-bold tracking-tight sm:text-3xl">{t("fp.title")}</h1>
               <p className="mx-auto mt-2 max-w-[340px] text-sm leading-5 text-zinc-500">
-                Enter your registered email and we&apos;ll send you a secure password reset link.
+                {t("fp.sub")}
               </p>
             </div>
 
@@ -99,7 +101,7 @@ export default function ForgotPasswordPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               <div>
-                <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-zinc-700">Email address</label>
+                <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-zinc-700">{t("pr.email")}</label>
                 <div className="flex min-w-0 items-center rounded-xl border border-white/90 bg-white/80 px-3 shadow-sm transition focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-100/70">
                   <span className="mr-2.5 shrink-0 text-blue-600"><MailIcon /></span>
                   <input
@@ -121,14 +123,14 @@ export default function ForgotPasswordPage() {
                 disabled={loading}
                 className="flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-700 to-blue-500 px-5 text-sm font-semibold text-white shadow-lg shadow-blue-300/40 transition hover:-translate-y-0.5 hover:from-blue-800 hover:to-blue-600 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? "Sending reset link..." : "Send reset link"}
+                {loading ? t("fp.sending") : t("fp.send")}
               </button>
             </form>
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-1 text-center text-sm text-zinc-500">
-              <span>Remember your password?</span>
+              <span>{t("fp.remember")}</span>
               <Link href="/login" className="font-semibold text-blue-700 transition hover:text-blue-900">
-                Back to sign in
+                {t("fp.back")}
               </Link>
             </div>
           </div>

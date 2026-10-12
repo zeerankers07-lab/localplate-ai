@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 
 type Mode = "login" | "signup";
 
@@ -111,6 +112,7 @@ function GoogleIcon() {
 }
 
 export default function LoginPage() {
+  const { t } = useI18n();
   const [mode, setMode] = useState<Mode>("login");
 
   const [email, setEmail] = useState("");
@@ -180,7 +182,7 @@ export default function LoginPage() {
       const errorMessage =
         err instanceof Error
           ? err.message
-          : "Google login failed. Please try again.";
+          : t("login.googleFail");
 
       setError(errorMessage);
       setGoogleLoading(false);
@@ -194,23 +196,23 @@ export default function LoginPage() {
     setMessage("");
 
     if (!email.trim() || !password) {
-      setError("Please enter your email and password.");
+      setError(t("login.needBoth"));
       return;
     }
 
     if (mode === "signup") {
       if (!name.trim()) {
-        setError("Please enter your name.");
+        setError(t("login.needName"));
         return;
       }
 
       if (password.length < 6) {
-        setError("Password must be at least 6 characters.");
+        setError(t("login.pwShort"));
         return;
       }
 
       if (password !== confirmPassword) {
-        setError("Passwords do not match.");
+        setError(t("login.pwMismatch"));
         return;
       }
     }
@@ -232,7 +234,7 @@ export default function LoginPage() {
             loginError.message.toLowerCase().includes("invalid login")
           ) {
             throw new Error(
-              "Email or password is incorrect. If you do not have an account yet, please create one first."
+              t("login.invalid")
             );
           }
 
@@ -240,7 +242,7 @@ export default function LoginPage() {
             loginError.message.toLowerCase().includes("not confirmed")
           ) {
             throw new Error(
-              "Your email is not confirmed yet. Please confirm your email and try again."
+              t("login.notConfirmed")
             );
           }
 
@@ -267,7 +269,7 @@ export default function LoginPage() {
           signupError.message.toLowerCase().includes("already registered")
         ) {
           throw new Error(
-            "This email is already registered. Please sign in instead."
+            t("login.already")
           );
         }
 
@@ -275,7 +277,7 @@ export default function LoginPage() {
       }
 
       setMessage(
-        "Account created successfully. Please check your email to confirm your account."
+        t("login.created")
       );
 
       setPassword("");
@@ -284,7 +286,7 @@ export default function LoginPage() {
       const errorMessage =
         err instanceof Error
           ? err.message
-          : "Something went wrong. Please try again.";
+          : t("login.wrong");
 
       setError(errorMessage);
     } finally {
@@ -335,14 +337,14 @@ export default function LoginPage() {
 
               <h1 className="mt-2 text-[28px] font-bold tracking-tight sm:text-3xl">
                 {mode === "login"
-                  ? "Welcome back"
-                  : "Create your account"}
+                  ? t("login.welcomeBack")
+                  : t("login.createAccount")}
               </h1>
 
               <p className="mx-auto mt-2 max-w-[340px] text-sm leading-5 text-zinc-500">
                 {mode === "login"
-                  ? "Sign in to continue planning smarter meals."
-                  : "Join LocalPlate AI and start planning personalized meals."}
+                  ? t("login.subLogin")
+                  : t("login.subSignup")}
               </p>
             </div>
 
@@ -371,7 +373,7 @@ export default function LoginPage() {
                     htmlFor="name"
                     className="mb-1 block text-xs font-medium text-zinc-700"
                   >
-                    Full name
+                    {t("login.fullName")}
                   </label>
 
                   <div className="flex items-center rounded-xl border border-white/90 bg-white/65 px-3 shadow-sm transition focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-100/70">
@@ -386,7 +388,7 @@ export default function LoginPage() {
                       autoComplete="name"
                       value={name}
                       onChange={(event) => setName(event.target.value)}
-                      placeholder="Your name"
+                      placeholder={t("login.yourName")}
                       className="h-11 w-full bg-transparent text-[15px] outline-none placeholder:text-zinc-400"
                     />
                   </div>
@@ -399,7 +401,7 @@ export default function LoginPage() {
                   htmlFor="email"
                   className="mb-1 block text-xs font-medium text-zinc-700"
                 >
-                  Email address
+                  {t("login.email")}
                 </label>
 
                 <div className="flex items-center rounded-xl border border-white/90 bg-white/65 px-3 shadow-sm transition focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-100/70">
@@ -427,7 +429,7 @@ export default function LoginPage() {
                   htmlFor="password"
                   className="mb-1 block text-xs font-medium text-zinc-700"
                 >
-                  Password
+                  {t("login.password")}
                 </label>
 
                 <div className="flex items-center rounded-xl border border-white/90 bg-white/65 px-3 shadow-sm transition focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-100/70">
@@ -446,8 +448,8 @@ export default function LoginPage() {
                     onChange={(event) => setPassword(event.target.value)}
                     placeholder={
                       mode === "login"
-                        ? "Your password"
-                        : "Create a password"
+                        ? t("login.yourPassword")
+                        : t("login.createPassword")
                     }
                     className="h-11 w-full bg-transparent text-[15px] outline-none placeholder:text-zinc-400"
                   />
@@ -470,7 +472,7 @@ export default function LoginPage() {
                       });
                     }}
                     aria-label={
-                      showPassword ? "Hide password" : "Show password"
+                      showPassword ? t("login.hide") : t("login.show")
                     }
                     className="ml-2 rounded-lg p-1.5 text-zinc-500 transition hover:bg-blue-50 hover:text-blue-600"
                   >
@@ -486,7 +488,7 @@ export default function LoginPage() {
                     htmlFor="confirm-password"
                     className="mb-1 block text-xs font-medium text-zinc-700"
                   >
-                    Confirm password
+                    {t("login.confirm")}
                   </label>
 
                   <div className="flex items-center rounded-xl border border-white/90 bg-white/65 px-3 shadow-sm transition focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-100/70">
@@ -504,7 +506,7 @@ export default function LoginPage() {
                       onChange={(event) =>
                         setConfirmPassword(event.target.value)
                       }
-                      placeholder="Repeat your password"
+                      placeholder={t("login.repeat")}
                       className="h-11 w-full bg-transparent text-[15px] outline-none placeholder:text-zinc-400"
                     />
 
@@ -523,8 +525,8 @@ export default function LoginPage() {
                       }}
                       aria-label={
                         showConfirmPassword
-                          ? "Hide password"
-                          : "Show password"
+                          ? t("login.hide")
+                          : t("login.show")
                       }
                       className="ml-2 rounded-lg p-1.5 text-zinc-500 transition hover:bg-blue-50 hover:text-blue-600"
                     >
@@ -546,14 +548,14 @@ export default function LoginPage() {
                       }
                       className="h-3.5 w-3.5 rounded border-zinc-300 accent-blue-600"
                     />
-                    Remember me
+                    {t("login.remember")}
                   </label>
 
                   <Link
                     href="/forgot-password"
                     className="text-xs font-semibold text-blue-700 transition hover:text-blue-900"
                   >
-                    Forgot password?
+                    {t("login.forgot")}
                   </Link>
                 </div>
               )}
@@ -566,11 +568,11 @@ export default function LoginPage() {
               >
                 {loading
                   ? mode === "login"
-                    ? "Signing in..."
-                    : "Creating account..."
+                    ? t("login.signingIn")
+                    : t("login.creating")
                   : mode === "login"
-                    ? "Sign in"
-                    : "Create account"}
+                    ? t("login.signIn")
+                    : t("login.createBtn")}
               </button>
             </form>
 
@@ -580,7 +582,7 @@ export default function LoginPage() {
                 <div className="my-4 flex items-center gap-3">
                   <div className="h-px flex-1 bg-zinc-300/70" />
                   <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-400">
-                    Or continue with
+                    {t("login.orWith")}
                   </span>
                   <div className="h-px flex-1 bg-zinc-300/70" />
                 </div>
@@ -593,8 +595,8 @@ export default function LoginPage() {
                 >
                   <GoogleIcon />
                   {googleLoading
-                    ? "Connecting to Google..."
-                    : "Continue with Google"}
+                    ? t("login.connecting")
+                    : t("login.google")}
                 </button>
               </>
             )}
@@ -603,18 +605,18 @@ export default function LoginPage() {
             <div className="mt-4 text-center text-xs text-zinc-500 sm:text-sm">
               {mode === "login" ? (
                 <>
-                  Don&apos;t have an account?{" "}
+                  {t("login.noAccount")}{" "}
                   <button
                     type="button"
                     onClick={() => switchMode("signup")}
                     className="font-semibold text-blue-700 transition hover:text-blue-900"
                   >
-                    Sign up
+                    {t("login.signUp")}
                   </button>
                 </>
               ) : (
                 <>
-                  Already have an account?{" "}
+                  {t("login.haveAccount")}{" "}
                   <button
                     type="button"
                     onClick={() => switchMode("login")}
@@ -627,8 +629,7 @@ export default function LoginPage() {
             </div>
 
             <p className="mx-auto mt-3 max-w-[330px] text-center text-[10px] leading-4 text-zinc-400">
-              Your account helps keep your LocalPlate AI experience personal
-              and secure.
+              {t("login.footer")}
             </p>
           </div>
         </div>
@@ -659,10 +660,10 @@ export default function LoginPage() {
                     id="welcome-popup-title"
                     className="mt-0.5 text-lg font-bold tracking-tight text-zinc-900"
                   >
-                    Welcome!
+                    {t("login.welcome")}
                   </h2>
                   <p className="text-[11px] leading-4 text-zinc-500">
-                    Login ke liye quick guide
+                    {t("login.guide")}
                   </p>
                 </div>
               </div>
@@ -671,10 +672,11 @@ export default function LoginPage() {
                 <div className="flex gap-2.5 rounded-xl border border-blue-100 bg-blue-50/80 p-2.5">
                   <span className="text-sm">🆕</span>
                   <div>
-                    <p className="text-xs font-bold text-blue-900">New user</p>
+                    <p className="text-xs font-bold text-blue-900">
+                      {t("login.newUser")}
+                    </p>
                     <p className="mt-0.5 text-[11px] leading-4 text-zinc-600">
-                      <strong>Create Account / Sign Up</strong> karein aur
-                      name, email aur password set karein.
+                      {t("login.newUserText")}
                     </p>
                   </div>
                 </div>
@@ -683,11 +685,10 @@ export default function LoginPage() {
                   <span className="text-sm">🔐</span>
                   <div>
                     <p className="text-xs font-bold text-zinc-900">
-                      Existing account
+                      {t("login.existing")}
                     </p>
                     <p className="mt-0.5 text-[11px] leading-4 text-zinc-600">
-                      Registered email aur password se <strong>Sign In</strong>
-                      karein.
+                      {t("login.existingText")}
                     </p>
                   </div>
                 </div>
@@ -696,12 +697,10 @@ export default function LoginPage() {
                   <span className="text-sm">💡</span>
                   <div>
                     <p className="text-xs font-bold text-amber-900">
-                      Google / Gmail
+                      {t("login.googleTitle")}
                     </p>
                     <p className="mt-0.5 text-[11px] leading-4 text-zinc-600">
-                      Gmail ke liye <strong>Continue with Google</strong>
-                      use karein. Google password ko normal password field
-                      mein use na karein.
+                      {t("login.googleText")}
                     </p>
                   </div>
                 </div>
@@ -712,7 +711,7 @@ export default function LoginPage() {
                 onClick={closeWelcomePopup}
                 className="mt-3.5 flex h-10 w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-700 to-blue-500 px-4 text-xs font-semibold text-white shadow-md shadow-blue-300/30 transition hover:-translate-y-0.5 hover:from-blue-800 hover:to-blue-600 active:translate-y-0"
               >
-                Got it, continue
+                {t("login.gotIt")}
               </button>
             </div>
           </div>

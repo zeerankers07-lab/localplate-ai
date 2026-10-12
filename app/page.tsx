@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import QuickStart from "./components/QuickStart";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 const ICON_PATHS = {
   calendar: "M4 6h16v14H4zM4 10h16M8 3v4M16 3v4",
@@ -34,34 +38,37 @@ function Icon({
   );
 }
 
-const TOOLS: { href: string; title: string; text: string; icon: IconName }[] = [
+const TOOLS: {
+  href: string;
+  title: TranslationKey;
+  text: TranslationKey;
+  icon: IconName;
+}[] = [
   {
     href: "/weekly-plan",
-    title: "Weekly plan",
-    text: "Seven days of meals",
+    title: "home.weekly",
+    text: "home.weeklyText",
     icon: "calendar",
   },
   {
     href: "/saved-plans",
-    title: "Saved plans",
-    text: "Reuse past plans",
+    title: "home.saved",
+    text: "home.savedText",
     icon: "bookmark",
   },
   {
     href: "/shopping-list",
-    title: "Shopping list",
-    text: "Check off as you shop",
+    title: "home.shopping",
+    text: "home.shoppingText",
     icon: "cart",
   },
 ];
 
-const HIGHLIGHTS = [
-  "PKR, INR and USD estimates",
-  "Nutrition per serving",
-  "Allergy filters",
-];
+const HIGHLIGHTS: TranslationKey[] = ["home.hl1", "home.hl2", "home.hl3"];
 
 export default function Home() {
+  const { t } = useI18n();
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#fff7ed_0%,#ffffff_42%,#fafafa_100%)] text-zinc-900">
       <div
@@ -73,16 +80,16 @@ export default function Home() {
         <div className="text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-white/80 px-3 py-1 text-xs font-medium text-orange-700 backdrop-blur">
             <span className="size-1.5 rounded-full bg-orange-500" />
-            AI recipe and meal planner
+            {t("home.badge")}
           </span>
 
           <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">
-            Cook smarter with{" "}
-            <span className="text-orange-600">what you have</span>
+            {t("home.title1")}{" "}
+            <span className="text-orange-600">{t("home.title2")}</span>
           </h1>
 
           <p className="mx-auto mt-4 max-w-md text-base text-zinc-600">
-            Recipes, costs and meal plans in seconds.
+            {t("home.subtitle")}
           </p>
         </div>
 
@@ -94,7 +101,7 @@ export default function Home() {
           {HIGHLIGHTS.map((item) => (
             <li key={item} className="inline-flex items-center gap-1.5">
               <Icon name="check" className="size-4 text-orange-600" />
-              {item}
+              {t(item)}
             </li>
           ))}
         </ul>
@@ -111,9 +118,11 @@ export default function Home() {
               </span>
 
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold">{tool.title}</span>
+                <span className="block text-sm font-semibold">
+                  {t(tool.title)}
+                </span>
                 <span className="block truncate text-xs text-zinc-500">
-                  {tool.text}
+                  {t(tool.text)}
                 </span>
               </span>
 

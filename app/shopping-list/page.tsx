@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 
 type FilterMode = "all" | "remaining" | "purchased";
 
@@ -312,6 +313,7 @@ function mergeQuantity(existing: string, incoming: string) {
 }
 
 export default function ShoppingListPage() {
+    const { t, label } = useI18n();
     const router = useRouter();
     const [shoppingList, setShoppingList] = useState("");
     const [checkedItems, setCheckedItems] = useState<string[]>([]);
@@ -822,12 +824,17 @@ export default function ShoppingListPage() {
             );
 
             const parts = [
-                added > 0 ? `${added} added` : "",
-                merged > 0 ? `${merged} merged` : "",
-                skipped > 0 ? `${skipped} already on your list` : "",
+                added > 0 ? t("sh.pAdded", { n: added }) : "",
+                merged > 0 ? t("sh.pMerged", { n: merged }) : "",
+                skipped > 0 ? t("sh.pSkipped", { n: skipped }) : "",
             ].filter(Boolean);
 
-            showToast(`From What Can I Cook?: ${parts.join(", ")}`, "success", undefined, 5000);
+            showToast(
+                t("sh.fromCook", { parts: parts.join(", ") }),
+                "success",
+                undefined,
+                5000
+            );
         } catch (error) {
             console.error("Could not merge incoming items:", error);
         }
@@ -1092,7 +1099,7 @@ export default function ShoppingListPage() {
         setNewItemName("");
         setNewItemQuantity("");
         setNewItemCost("");
-        showToast(`"${name}" added to your list`);
+        showToast(t("sh.tAdded", { name }));
     };
 
     const startEditQuantity = (item: ShoppingItem) => {
@@ -1150,7 +1157,7 @@ export default function ShoppingListPage() {
 
         const numericPrice = Number(value);
         if (!Number.isFinite(numericPrice) || numericPrice < 0) {
-            showToast("Please enter a valid price.", "error");
+            showToast(t("sh.tPrice"), "error");
             return;
         }
 
@@ -1187,17 +1194,17 @@ export default function ShoppingListPage() {
         );
 
         return [
-            "🛒 LocalPlate AI - Shopping List",
+            t("sh.shHeader"),
             "",
-            lines.length ? lines.join("\n") : "All items purchased ✓",
+            lines.length ? lines.join("\n") : t("sh.allBought"),
             "",
-            `Total Items: ${totalItems}`,
-            `Purchased: ${purchasedItems}`,
-            `Remaining: ${remainingItems}`,
-            `Estimated Total: Rs. ${totalCost.toLocaleString()}`,
-            `Estimated Remaining: Rs. ${remainingCost.toLocaleString()}`,
+            t("sh.shTotal", { n: totalItems }),
+            t("sh.shBought", { n: purchasedItems }),
+            t("sh.shRemain", { n: remainingItems }),
+            t("sh.shTotalCost", { n: totalCost.toLocaleString() }),
+            t("sh.shRemainCost", { n: remainingCost.toLocaleString() }),
             "",
-            "Note: Prices are approximate estimates.",
+            t("sh.shNote"),
         ].join("\n");
     };
 
@@ -1213,7 +1220,7 @@ export default function ShoppingListPage() {
             window.setTimeout(() => setCopied(false), 2000);
         } catch (error) {
             console.error("Shopping list copy failed:", error);
-            showToast("Could not copy the list.", "error");
+            showToast(t("sh.tCopyFail"), "error");
         }
     };
 
@@ -1282,7 +1289,7 @@ export default function ShoppingListPage() {
             JSON.stringify(snapshot.manualPrices)
         );
 
-        showToast("Shopping list restored");
+        showToast(t("sh.tRestored"));
     };
 
     const clearShoppingList = async () => {
@@ -1343,7 +1350,7 @@ export default function ShoppingListPage() {
         } catch (error) {
             console.error("Failed to clear shopping list:", error);
             setClearError(
-                "List yahan se clear ho gayi, lekin database se clear nahi ho saki. Refresh par wapas aa sakti hai. " +
+                t("sh.clearFail") +
                     (error instanceof Error
                         ? error.message
                         : JSON.stringify(error))
@@ -1356,9 +1363,9 @@ export default function ShoppingListPage() {
         setShowClearConfirm(false);
 
         showToast(
-            "Shopping list cleared",
+            t("sh.tCleared"),
             "success",
-            { label: "Undo", run: () => restoreSnapshot(snapshot) },
+            { label: t("sh.undo"), run: () => restoreSnapshot(snapshot) },
             7000
         );
     };
@@ -1425,7 +1432,7 @@ export default function ShoppingListPage() {
                         <button
                             type="button"
                             onClick={handleBack}
-                            aria-label="Go back"
+                            aria-label={t("sp.goBack")}
                             className="group inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-orange-200 bg-white pl-3 pr-4 text-sm font-bold text-orange-700 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 active:scale-95"
                         >
                             <span
@@ -1434,21 +1441,21 @@ export default function ShoppingListPage() {
                             >
                                 ←
                             </span>
-                            <span>Back</span>
+                            <span>{t("sp.back")}</span>
                         </button>
 
                         <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-bold text-zinc-900">
-                                Shopping List
+                                {t("nav.shopping")}
                             </p>
                             <p className="truncate text-xs text-zinc-500">
-                                {totalItems} items · {progress}% done
+                                {t("sh.headerSummary", { n: totalItems, p: progress })}
                             </p>
                         </div>
 
                         <a
                             href="/weekly-plan"
-                            aria-label="Weekly Plan"
+                            aria-label={t("nav.weekly")}
                             className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-indigo-200 bg-white px-3.5 text-sm font-bold text-indigo-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50 active:scale-95 sm:px-4"
                         >
                             <span aria-hidden="true">📅</span>
@@ -1457,7 +1464,7 @@ export default function ShoppingListPage() {
 
                         <a
                             href="/saved-plans"
-                            aria-label="Saved Plans"
+                            aria-label={t("nav.saved")}
                             className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-zinc-200 bg-white px-3.5 text-sm font-bold text-zinc-800 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 active:scale-95 sm:px-4"
                         >
                             <span aria-hidden="true">💾</span>
@@ -1468,22 +1475,25 @@ export default function ShoppingListPage() {
 
                 <section>
                     <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                        Shopping list
+                        {t("nav.shopping")}
                     </h1>
 
                     <p className="mt-1.5 text-sm text-zinc-500">
-                        {totalItems} items · {categoriesUsed} categories ·{" "}
-                        {syncing ? "Syncing…" : "Saved"}
+                        {t("sh.summary", {
+                            n: totalItems,
+                            c: categoriesUsed,
+                            s: syncing ? t("sh.syncing") : t("sh.savedState"),
+                        })}
                     </p>
                 </section>
 
                 <section className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                     {[
-                        ["Total", totalItems.toString(), "🛒"],
-                        ["Purchased", purchasedItems.toString(), "✅"],
-                        ["Remaining", remainingItems.toString(), "📌"],
+                        [t("sh.total"), totalItems.toString(), "🛒"],
+                        [t("sh.purchased"), purchasedItems.toString(), "✅"],
+                        [t("sh.remaining"), remainingItems.toString(), "📌"],
                         [
-                            "Remaining Cost",
+                            t("sh.remainingCost"),
                             `Rs. ${remainingCost.toLocaleString()}`,
                             "💰",
                         ],
@@ -1509,11 +1519,10 @@ export default function ShoppingListPage() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <p className="font-bold">
-                                Shopping progress
+                                {t("sh.progress")}
                             </p>
                             <p className="mt-1 text-sm text-zinc-500">
-                                {purchasedItems} of {totalItems} items
-                                purchased
+                                {t("sh.progressText", { a: purchasedItems, b: totalItems })}
                             </p>
                         </div>
 
@@ -1533,8 +1542,7 @@ export default function ShoppingListPage() {
 
                     {progress === 100 && totalItems > 0 && (
                         <div className="mt-4 rounded-2xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
-                            🎉 Shopping complete! You have checked
-                            everything off.
+                            {t("sh.complete")}
                         </div>
                     )}
                 </section>
@@ -1551,8 +1559,8 @@ export default function ShoppingListPage() {
                                 <span aria-hidden="true">☑</span>
                                 <span>
                                     {purchasedItems === totalItems && totalItems > 0
-                                        ? "Unselect All"
-                                        : "Select All"}
+                                        ? t("sh.unselect")
+                                        : t("sh.selectAll")}
                                 </span>
                             </button>
 
@@ -1563,7 +1571,7 @@ export default function ShoppingListPage() {
                                 className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm font-bold text-zinc-800 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-full sm:px-5"
                             >
                                 <span aria-hidden="true">{copied ? "✓" : "⧉"}</span>
-                                <span>{copied ? "Copied" : "Copy List"}</span>
+                                <span>{copied ? t("toast.copied") : t("sh.copyList")}</span>
                             </button>
 
                             <button
@@ -1573,7 +1581,7 @@ export default function ShoppingListPage() {
                                 className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm font-bold text-zinc-800 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-full sm:px-5"
                             >
                                 <span aria-hidden="true">{downloaded ? "✓" : "↓"}</span>
-                                <span>{downloaded ? "Downloaded" : "Download"}</span>
+                                <span>{downloaded ? t("sh.downloaded") : t("sh.download")}</span>
                             </button>
 
                             <button
@@ -1583,7 +1591,7 @@ export default function ShoppingListPage() {
                                 className="col-span-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-green-700 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-1 sm:w-auto sm:rounded-full sm:px-5"
                             >
                                 <span aria-hidden="true">{whatsappOpened ? "✓" : "↗"}</span>
-                                <span>{whatsappOpened ? "WhatsApp Opened" : "Share on WhatsApp"}</span>
+                                <span>{whatsappOpened ? t("sh.waOpened") : t("sh.waShare")}</span>
                             </button>
 
                             <button
@@ -1595,7 +1603,7 @@ export default function ShoppingListPage() {
                                 className="col-span-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-bold text-red-600 shadow-sm transition hover:bg-red-100 active:scale-[0.98] sm:col-span-1 sm:w-auto sm:rounded-full sm:px-5"
                             >
                                 <span aria-hidden="true">🗑️</span>
-                                <span>Clear List</span>
+                                <span>{t("sh.clearList")}</span>
                             </button>
                         </div>
                     </section>
@@ -1603,7 +1611,7 @@ export default function ShoppingListPage() {
 
                 <section className="mt-5 rounded-3xl border border-zinc-100 bg-white p-4 shadow-sm sm:p-5">
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
-                        Add item
+                        {t("sh.addItem")}
                     </p>
 
                     <div className="mt-3 grid gap-2.5 sm:grid-cols-[2fr_1fr_1fr_auto]">
@@ -1615,7 +1623,7 @@ export default function ShoppingListPage() {
                             onKeyDown={(event) => {
                                 if (event.key === "Enter") addCustomItem();
                             }}
-                            placeholder="Item name (e.g. Milk)"
+                            placeholder={t("sh.phName")}
                             className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
                         />
 
@@ -1627,7 +1635,7 @@ export default function ShoppingListPage() {
                             onKeyDown={(event) => {
                                 if (event.key === "Enter") addCustomItem();
                             }}
-                            placeholder="Quantity (1 kg)"
+                            placeholder={t("sh.phQty")}
                             className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
                         />
 
@@ -1640,7 +1648,7 @@ export default function ShoppingListPage() {
                             onKeyDown={(event) => {
                                 if (event.key === "Enter") addCustomItem();
                             }}
-                            placeholder="Price (Rs.)"
+                            placeholder={t("sh.phPrice")}
                             className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
                         />
 
@@ -1671,7 +1679,7 @@ export default function ShoppingListPage() {
                                     onChange={(event) =>
                                         setSearchTerm(event.target.value)
                                     }
-                                    placeholder="Search ingredients..."
+                                    placeholder={t("sh.phSearch")}
                                     className="w-full rounded-xl border border-zinc-200 py-2.5 pl-10 pr-9 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
                                 />
 
@@ -1679,7 +1687,7 @@ export default function ShoppingListPage() {
                                     <button
                                         type="button"
                                         onClick={() => setSearchTerm("")}
-                                        aria-label="Clear search"
+                                        aria-label={t("sp.clearSearch")}
                                         className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-xs text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
                                     >
                                         ✕
@@ -1689,14 +1697,14 @@ export default function ShoppingListPage() {
 
                             <div
                                 role="group"
-                                aria-label="Filter by status"
+                                aria-label={t("sh.filterStatus")}
                                 className="inline-flex w-full rounded-xl bg-zinc-100 p-1 lg:w-auto"
                             >
                                 {(
                                     [
-                                        ["all", "All", totalItems],
-                                        ["remaining", "Remaining", remainingItems],
-                                        ["purchased", "Purchased", purchasedItems],
+                                        ["all", t("sh.fAll"), totalItems],
+                                        ["remaining", t("sh.remaining"), remainingItems],
+                                        ["purchased", t("sh.purchased"), purchasedItems],
                                     ] as [FilterMode, string, number][]
                                 ).map(([mode, label, count]) => (
                                     <button
@@ -1734,7 +1742,7 @@ export default function ShoppingListPage() {
                                     }`}
                             >
                                 <span aria-hidden="true">★</span>
-                                Favorites
+                                {t("sh.fav")}
                                 <span className="opacity-70">{favoriteCount}</span>
                             </button>
 
@@ -1748,7 +1756,7 @@ export default function ShoppingListPage() {
                                 ] as (Category | "All")[]
                             ).map((category) => (
                                 <button
-                                    key={category}
+                                    key={label("cat", category)}
                                     type="button"
                                     onClick={() => setCategoryFilter(category)}
                                     aria-pressed={categoryFilter === category}
@@ -1762,7 +1770,7 @@ export default function ShoppingListPage() {
                                             ? "🧺"
                                             : CATEGORY_ICONS[category]}
                                     </span>
-                                    {category}
+                                    {label("cat", category)}
                                     <span className="opacity-70">
                                         {category === "All"
                                             ? totalItems
@@ -1777,7 +1785,7 @@ export default function ShoppingListPage() {
                                     onClick={clearFilters}
                                     className="ml-1 shrink-0 text-xs font-bold text-orange-600 hover:text-orange-700"
                                 >
-                                    Reset filters
+                                    {t("sh.resetFilters")}
                                 </button>
                             )}
                         </div>
@@ -1789,10 +1797,10 @@ export default function ShoppingListPage() {
                         <div className="flex flex-col gap-2 border-b border-zinc-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
-                                    Smart ingredients
+                                    {t("sh.smart")}
                                 </p>
                                 <h2 className="mt-1 text-2xl font-bold">
-                                    What you need to buy
+                                    {t("sh.needBuy")}
                                 </h2>
                             </div>
 
@@ -1822,8 +1830,8 @@ export default function ShoppingListPage() {
                                         className="mt-2 text-xs font-bold text-orange-600 hover:text-orange-700"
                                     >
                                         {collapsedCategories.length > 0
-                                            ? "Expand all"
-                                            : "Collapse all"}
+                                            ? t("sh.expand")
+                                            : t("sh.collapse")}
                                     </button>
                                 )}
                             </div>
@@ -1833,7 +1841,7 @@ export default function ShoppingListPage() {
                             <div>
                                 {groupedVisibleItems.map(
                                     ({ category, items }) => (
-                                        <div key={category}>
+                                        <div key={label("cat", category)}>
                                             <button
                                                 type="button"
                                                 onClick={() =>
@@ -1850,7 +1858,7 @@ export default function ShoppingListPage() {
                                                     {CATEGORY_ICONS[category]}
                                                 </span>
                                                 <h3 className="font-bold">
-                                                    {category}
+                                                    {label("cat", category)}
                                                 </h3>
                                                 <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-zinc-500">
                                                     {items.length}
@@ -1919,7 +1927,7 @@ export default function ShoppingListPage() {
                                                                 )
                                                             }
                                                             className="mt-0.5 h-6 w-6 shrink-0 accent-orange-600 sm:mt-1 sm:h-5 sm:w-5"
-                                                            aria-label={`Mark ${item.name} as purchased`}
+                                                            aria-label={t("sh.markAria", { name: item.name })}
                                                         />
 
                                                         <div className="min-w-0 flex-1">
@@ -1936,14 +1944,12 @@ export default function ShoppingListPage() {
                                                                 </p>
 
                                                                 <span className="rounded-full bg-zinc-100 px-2 py-1 text-[10px] font-bold text-zinc-500">
-                                                                    {
-                                                                        category
-                                                                    }
+                                                                    {label("cat", category)}
                                                                 </span>
 
                                                                 {isCustom && (
                                                                     <span className="rounded-full bg-orange-100 px-2 py-1 text-[10px] font-bold text-orange-700">
-                                                                        Custom
+                                                                        {t("sh.custom")}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -1994,7 +2000,7 @@ export default function ShoppingListPage() {
                                                                         }
                                                                         className="rounded-lg bg-orange-600 px-3 py-2 text-xs font-bold text-white"
                                                                     >
-                                                                        Save
+                                                                        {t("sh.save")}
                                                                     </button>
                                                                     <button
                                                                         type="button"
@@ -2005,15 +2011,15 @@ export default function ShoppingListPage() {
                                                                         }
                                                                         className="rounded-lg bg-zinc-100 px-3 py-2 text-xs font-bold text-zinc-600"
                                                                     >
-                                                                        Cancel
+                                                                        {t("cook.cancel")}
                                                                     </button>
                                                                 </div>
                                                             ) : (
                                                                 <div className="mt-1 flex flex-wrap items-center gap-2">
                                                                     <p className="text-sm text-zinc-500">
                                                                         {item.quantity
-                                                                            ? `Quantity: ${item.quantity}`
-                                                                            : "Quantity not specified"}
+                                                                            ? t("sh.qty", { q: item.quantity })
+                                                                            : t("sh.qtyNone")}
                                                                     </p>
 
                                                                     {isCustom && (
@@ -2026,7 +2032,7 @@ export default function ShoppingListPage() {
                                                                             }
                                                                             className="text-xs font-bold text-orange-600 hover:text-orange-700"
                                                                         >
-                                                                            Edit quantity
+                                                                            {t("sh.editQty")}
                                                                         </button>
                                                                     )}
                                                                 </div>
@@ -2047,8 +2053,8 @@ export default function ShoppingListPage() {
                                                                     }`}
                                                                 aria-label={
                                                                     isFavorite
-                                                                        ? `Remove ${item.name} from favorites`
-                                                                        : `Favorite ${item.name}`
+                                                                        ? t("sh.unfavAria", { name: item.name })
+                                                                        : t("sh.favAria", { name: item.name })
                                                                 }
                                                             >
                                                                 {isFavorite
@@ -2082,14 +2088,14 @@ export default function ShoppingListPage() {
                                                                                 onClick={() => savePrice(item.id)}
                                                                                 className="rounded-lg bg-orange-600 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-orange-700"
                                                                             >
-                                                                                Save
+                                                                                {t("sh.save")}
                                                                             </button>
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => resetPrice(item.id)}
                                                                                 className="rounded-lg bg-zinc-100 px-2.5 py-1.5 text-[11px] font-bold text-zinc-600 hover:bg-zinc-200"
                                                                             >
-                                                                                Reset
+                                                                                {t("sp.reset")}
                                                                             </button>
                                                                         </div>
                                                                     </div>
@@ -2106,7 +2112,7 @@ export default function ShoppingListPage() {
                                                                             </p>
                                                                         ) : (
                                                                             <p className="pt-1 text-xs text-zinc-400">
-                                                                                No price
+                                                                                {t("sh.noPrice")}
                                                                             </p>
                                                                         )}
 
@@ -2115,11 +2121,13 @@ export default function ShoppingListPage() {
                                                                             onClick={() => startEditPrice(item)}
                                                                             className="mt-1 rounded-lg bg-orange-50 px-2.5 py-1.5 text-[11px] font-bold text-orange-700 hover:bg-orange-100"
                                                                         >
-                                                                            ✏️ {manualPrices[item.id] !== undefined ? "My Price" : "Add Price"}
+                                                                            ✏️ {manualPrices[item.id] !== undefined
+                                                                    ? t("sh.myPrice")
+                                                                    : t("sh.addPrice")}
                                                                         </button>
                                                                         {manualPrices[item.id] !== undefined && (
                                                                             <p className="mt-1 text-[10px] font-medium text-orange-600">
-                                                                                Your price
+                                                                                {t("sh.yourPrice")}
                                                                             </p>
                                                                         )}
                                                                     </>
@@ -2135,7 +2143,7 @@ export default function ShoppingListPage() {
                                                                         )
                                                                     }
                                                                     className="rounded-lg bg-red-50 px-2 py-1 text-sm text-red-600 hover:bg-red-100"
-                                                                    aria-label={`Delete ${item.name}`}
+                                                                    aria-label={t("sh.delAria", { name: item.name })}
                                                                 >
                                                                     🗑️
                                                                 </button>
@@ -2154,18 +2162,17 @@ export default function ShoppingListPage() {
                                     🔎
                                 </div>
                                 <h3 className="mt-4 text-xl font-bold">
-                                    No matching ingredients
+                                    {t("sh.noMatch")}
                                 </h3>
                                 <p className="mt-2 text-sm text-zinc-500">
-                                    Search ya filters change karke
-                                    dobara try karein.
+                                    {t("sh.noMatchText")}
                                 </p>
                                 <button
                                     type="button"
                                     onClick={clearFilters}
                                     className="mt-5 rounded-full bg-orange-600 px-5 py-2.5 text-sm font-bold text-white"
                                 >
-                                    Reset Filters
+                                    {t("sh.resetFilters")}
                                 </button>
                             </div>
                         )}
@@ -2176,12 +2183,10 @@ export default function ShoppingListPage() {
                             🛒
                         </div>
                         <h2 className="mt-5 text-2xl font-bold">
-                            No shopping list yet
+                            {t("sh.empty")}
                         </h2>
                         <p className="mx-auto mt-2 max-w-md text-zinc-500">
-                            Pehle meal plan generate karein. LocalPlate
-                            AI ingredients ko yahan automatically
-                            organize karega.
+                            {t("sh.emptyText")}
                         </p>
 
                         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
@@ -2189,13 +2194,13 @@ export default function ShoppingListPage() {
                                 href="/planner"
                                 className="rounded-full bg-orange-600 px-6 py-3 font-bold text-white shadow-md hover:bg-orange-700"
                             >
-                                Create Meal Plan →
+                                {t("sh.createPlan")}
                             </a>
                             <a
                                 href="/weekly-plan"
                                 className="rounded-full border border-indigo-200 bg-white px-6 py-3 font-bold text-indigo-600 hover:bg-indigo-50"
                             >
-                                📅 Create Weekly Plan
+                                {t("sh.createWeekly")}
                             </a>
                         </div>
                     </section>
@@ -2203,9 +2208,7 @@ export default function ShoppingListPage() {
 
                 {ingredientItems.length > 0 && (
                     <p className="mt-5 text-center text-xs text-zinc-400">
-                        Prices are approximate and may vary by city, shop and
-                        season. Tap &quot;Add Price&quot; on any item to use
-                        your own price.
+                        {t("sh.priceNote")}
                     </p>
                 )}
 
@@ -2218,10 +2221,10 @@ export default function ShoppingListPage() {
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2 text-xs">
                                 <span className="font-bold text-zinc-800">
-                                    {purchasedItems}/{totalItems} done
+                                    {t("sh.done", { a: purchasedItems, b: totalItems })}
                                 </span>
                                 <span className="truncate font-semibold text-green-600">
-                                    Rs. {remainingCost.toLocaleString()} left
+                                    {t("sh.left", { n: remainingCost.toLocaleString() })}
                                 </span>
                             </div>
 
@@ -2239,7 +2242,7 @@ export default function ShoppingListPage() {
                             className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-green-600 px-4 text-sm font-bold text-white shadow-sm transition active:scale-95"
                         >
                             <span aria-hidden="true">↗</span>
-                            Share
+                            {t("sh.share")}
                         </button>
                     </div>
                 </div>
@@ -2307,24 +2310,22 @@ export default function ShoppingListPage() {
                                     id="clear-list-title"
                                     className="text-xl font-bold text-zinc-900"
                                 >
-                                    Clear shopping list?
+                                    {t("sh.clearTitle")}
                                 </h3>
                                 <p
                                     id="clear-list-desc"
                                     className="mt-1 text-sm leading-6 text-zinc-500"
                                 >
-                                    Ye list aapke saare devices se hat jayegi.
-                                    Clear karne ke foran baad aap Undo kar
-                                    sakte ho.
+                                    {t("sh.clearText")}
                                 </p>
                             </div>
                         </div>
 
                         <div className="mt-5 grid grid-cols-3 gap-2">
                             {[
-                                ["Items", String(totalItems)],
-                                ["Checked", String(purchasedItems)],
-                                ["Value", `Rs. ${totalCost.toLocaleString()}`],
+                                [t("sh.items"), String(totalItems)],
+                                [t("sh.checked"), String(purchasedItems)],
+                                [t("sh.value"), `Rs. ${totalCost.toLocaleString()}`],
                             ].map(([label, value]) => (
                                 <div
                                     key={label}
@@ -2353,7 +2354,7 @@ export default function ShoppingListPage() {
                                 disabled={clearing}
                                 className="inline-flex min-h-12 items-center justify-center rounded-full border border-zinc-200 bg-white px-6 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                {clearError ? "Close" : "Cancel"}
+                                {clearError ? t("fb.close") : t("cook.cancel")}
                             </button>
 
                             {!clearError && (
@@ -2366,10 +2367,10 @@ export default function ShoppingListPage() {
                                     {clearing ? (
                                         <>
                                             <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                                            Clearing...
+                                            {t("sh.clearing")}
                                         </>
                                     ) : (
-                                        "Yes, clear list"
+                                        t("sh.confirmClear")
                                     )}
                                 </button>
                             )}

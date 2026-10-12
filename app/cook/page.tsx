@@ -12,12 +12,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n, type CurrencyCode } from "@/lib/i18n/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 // =========================
 // Constants
 // =========================
 
-type CurrencyCode = "PKR" | "INR" | "USD";
 
 const CURRENCIES: Record<
   CurrencyCode,
@@ -64,10 +65,10 @@ const ALLERGIES = [
 type Mode = "available" | "leftover" | "quick" | "budget";
 
 const MODES: { id: Mode; label: string }[] = [
-  { id: "available", label: "Use what I have" },
-  { id: "leftover", label: "Rescue leftovers" },
-  { id: "quick", label: "Quick meals" },
-  { id: "budget", label: "Budget meals" },
+  { id: "available", label: "mode.available" },
+  { id: "leftover", label: "mode.leftover" },
+  { id: "quick", label: "mode.quick" },
+  { id: "budget", label: "mode.budget" },
 ];
 
 const POPULAR = [
@@ -475,6 +476,7 @@ function RecipeCard({
   onShop,
   onCopy,
 }: RecipeCardProps) {
+  const { t, label } = useI18n();
   const [open, setOpen] = useState(defaultOpen);
   const [servings, setServings] = useState(basePeople);
 
@@ -501,10 +503,10 @@ function RecipeCard({
     haveItems.length > 0 || needItems.length > 0 || recipe.length > 0;
 
   const meta = [
-    minutes ? `${minutes} min` : "",
-    level ?? "",
+    minutes ? t("unit.min", { n: minutes }) : "",
+    level ? label("opt", level) : "",
     scaledCost ? `${symbol} ${scaledCost}` : "",
-    nutrition?.calories ? `${nutrition.calories} kcal` : "",
+    nutrition?.calories ? t("unit.kcal", { n: nutrition.calories }) : "",
   ].filter(Boolean);
 
   return (
@@ -540,8 +542,8 @@ function RecipeCard({
             type="button"
             onClick={onSave}
             aria-pressed={saved}
-            aria-label={saved ? "Remove from saved" : "Save recipe"}
-            title={saved ? "Remove from saved" : "Save recipe"}
+            aria-label={saved ? t("card.unsave") : t("card.save")}
+            title={saved ? t("card.unsave") : t("card.save")}
             className={`${iconButton} ${saved ? "text-orange-600" : ""}`}
           >
             <Icon name="bookmark" filled={saved} />
@@ -550,8 +552,8 @@ function RecipeCard({
           <button
             type="button"
             onClick={onPlan}
-            aria-label="Add to meal plan"
-            title="Add to meal plan"
+            aria-label={t("card.plan")}
+            title={t("card.plan")}
             className={iconButton}
           >
             <Icon name="calendar" />
@@ -561,8 +563,8 @@ function RecipeCard({
             type="button"
             onClick={() => onShop(needItems)}
             disabled={needItems.length === 0}
-            aria-label="Add missing items to shopping list"
-            title="Add missing items to shopping list"
+            aria-label={t("card.shop")}
+            title={t("card.shop")}
             className={`${iconButton} disabled:opacity-40`}
           >
             <Icon name="cart" />
@@ -571,8 +573,8 @@ function RecipeCard({
           <button
             type="button"
             onClick={onCopy}
-            aria-label="Copy recipe"
-            title="Copy recipe"
+            aria-label={t("card.copy")}
+            title={t("card.copy")}
             className={iconButton}
           >
             <Icon name="copy" />
@@ -585,13 +587,13 @@ function RecipeCard({
           {structured ? (
             <>
               <div className="flex items-center gap-3 text-sm">
-                <span className="text-zinc-500">Servings</span>
+                <span className="text-zinc-500">{t("card.servings")}</span>
 
                 <div className="inline-flex items-center rounded-lg border border-zinc-200">
                   <button
                     type="button"
                     onClick={() => setServings((value) => Math.max(1, value - 1))}
-                    aria-label="Fewer servings"
+                    aria-label={t("card.fewer")}
                     className="flex size-8 items-center justify-center rounded-l-lg text-zinc-600 outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-orange-500"
                   >
                     <Icon name="minus" className="size-3.5" />
@@ -607,7 +609,7 @@ function RecipeCard({
                   <button
                     type="button"
                     onClick={() => setServings((value) => Math.min(20, value + 1))}
-                    aria-label="More servings"
+                    aria-label={t("card.more")}
                     className="flex size-8 items-center justify-center rounded-r-lg text-zinc-600 outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-orange-500"
                   >
                     <Icon name="plus" className="size-3.5" />
@@ -618,7 +620,7 @@ function RecipeCard({
               {(haveItems.length > 0 || needItems.length > 0) && (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <SectionLabel>Have</SectionLabel>
+                    <SectionLabel>{t("card.have")}</SectionLabel>
                     <ul className="mt-1.5 space-y-1 text-sm text-zinc-700">
                       {haveItems.length > 0 ? (
                         haveItems.map((item, index) => (
@@ -631,14 +633,14 @@ function RecipeCard({
                   </div>
 
                   <div>
-                    <SectionLabel>Need</SectionLabel>
+                    <SectionLabel>{t("card.need")}</SectionLabel>
                     <ul className="mt-1.5 space-y-1 text-sm text-zinc-700">
                       {needItems.length > 0 ? (
                         needItems.map((item, index) => (
                           <li key={`${item}-${index}`}>{item}</li>
                         ))
                       ) : (
-                        <li className="text-zinc-400">Nothing</li>
+                        <li className="text-zinc-400">{t("card.nothing")}</li>
                       )}
                     </ul>
                   </div>
@@ -647,13 +649,19 @@ function RecipeCard({
 
               {nutrition && (
                 <div>
-                  <SectionLabel>Per serving (estimate)</SectionLabel>
+                  <SectionLabel>{t("card.perServing")}</SectionLabel>
                   <p className="mt-1.5 text-sm text-zinc-700">
                     {[
-                      nutrition.calories ? `${nutrition.calories} kcal` : "",
-                      nutrition.protein ? `${nutrition.protein} g protein` : "",
-                      nutrition.carbs ? `${nutrition.carbs} g carbs` : "",
-                      nutrition.fat ? `${nutrition.fat} g fat` : "",
+                      nutrition.calories
+                        ? t("unit.kcal", { n: nutrition.calories })
+                        : "",
+                      nutrition.protein
+                        ? t("unit.protein", { n: nutrition.protein })
+                        : "",
+                      nutrition.carbs
+                        ? t("unit.carbs", { n: nutrition.carbs })
+                        : "",
+                      nutrition.fat ? t("unit.fat", { n: nutrition.fat }) : "",
                     ]
                       .filter(Boolean)
                       .join(" · ")}
@@ -663,7 +671,7 @@ function RecipeCard({
 
               {recipe && (
                 <div>
-                  <SectionLabel>Steps</SectionLabel>
+                  <SectionLabel>{t("card.steps")}</SectionLabel>
                   <div className="mt-1.5">
                     <Markdown text={recipe} />
                   </div>
@@ -672,7 +680,7 @@ function RecipeCard({
 
               {substitutions.length > 0 && (
                 <div>
-                  <SectionLabel>Substitutions</SectionLabel>
+                  <SectionLabel>{t("card.subs")}</SectionLabel>
                   <ul className="mt-1.5 space-y-1 text-sm text-zinc-700">
                     {substitutions.map((item, index) => (
                       <li key={`${item}-${index}`}>{item}</li>
@@ -696,9 +704,9 @@ const fieldClass =
 const labelClass = "mb-1.5 block text-xs font-medium text-zinc-500";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "results", label: "Results" },
-  { id: "saved", label: "Saved" },
-  { id: "plan", label: "Plan" },
+  { id: "results", label: "tab.results" },
+  { id: "saved", label: "tab.saved" },
+  { id: "plan", label: "tab.plan" },
 ];
 
 // =========================
@@ -716,7 +724,8 @@ export default function CookPage() {
   const [difficulty, setDifficulty] = useState("Any");
   const [mealType, setMealType] = useState("Any");
   const [mode, setMode] = useState<Mode>("available");
-  const [currency, setCurrency] = useState<CurrencyCode>("PKR");
+  const { t, label, lang, currency, setCurrency } = useI18n();
+  const storedPrefs = useRef<Record<string, unknown> | null>(null);
   const [budget, setBudget] = useState("1000");
   const [time, setTime] = useState("30");
   const [people, setPeople] = useState("2");
@@ -800,12 +809,7 @@ export default function CookPage() {
           if (MODES.some((item) => item.id === text(prefs.mode))) {
             setMode(text(prefs.mode) as Mode);
           }
-          if (Object.keys(CURRENCIES).includes(text(prefs.currency))) {
-            setCurrency(text(prefs.currency) as CurrencyCode);
-          }
-          if (/^\d{1,6}$/.test(text(prefs.budget))) {
-            setBudget(text(prefs.budget));
-          }
+          storedPrefs.current = prefs;
           if (/^\d{1,3}$/.test(text(prefs.time))) setTime(text(prefs.time));
           if (/^\d{1,2}$/.test(text(prefs.people))) {
             setPeople(text(prefs.people));
@@ -874,6 +878,21 @@ export default function CookPage() {
     people,
     allergies,
   ]);
+
+  // The budget follows the currency (the stored budget when it matches).
+  useEffect(() => {
+    if (!restored) return;
+
+    const stored = storedPrefs.current;
+    const storedBudget =
+      typeof stored?.budget === "string" ? stored.budget : "";
+
+    setBudget(
+      stored?.currency === currency && /^\d{1,6}$/.test(storedBudget)
+        ? storedBudget
+        : CURRENCIES[currency].defaultBudget
+    );
+  }, [restored, currency]);
 
   useEffect(() => {
     if (!restored) return;
@@ -1043,7 +1062,6 @@ export default function CookPage() {
 
   function changeCurrency(code: CurrencyCode) {
     setCurrency(code);
-    setBudget(CURRENCIES[code].defaultBudget);
   }
 
   // =========================
@@ -1059,22 +1077,22 @@ export default function CookPage() {
     setTab("results");
 
     if (ingredients.length === 0) {
-      setError("Add at least one ingredient.");
+      setError(t("err.ingredient"));
       return;
     }
 
     if (!budget || Number(budget) <= 0) {
-      setError("Enter a valid budget.");
+      setError(t("err.budget"));
       return;
     }
 
     if (!time || Number(time) <= 0) {
-      setError("Enter a valid cooking time.");
+      setError(t("err.time"));
       return;
     }
 
     if (!people || Number(people) <= 0) {
-      setError("Enter the number of people.");
+      setError(t("err.people"));
       return;
     }
 
@@ -1082,6 +1100,13 @@ export default function CookPage() {
     setResult("");
 
     const ingredientText = ingredients.join(", ");
+
+    const languageInstruction =
+      lang === "ur"
+        ? "Urdu (اردو), written in Urdu script (not Roman Urdu)."
+        : lang === "hi"
+          ? "Hindi (हिन्दी), written in Devanagari script."
+          : "English.";
 
     const modeInstructions: Record<Mode, string> = {
       available: `
@@ -1151,6 +1176,9 @@ ${time} minutes
 EXTRA PREFERENCE:
 ${notes.trim() || "None"}
 
+RESPONSE LANGUAGE:
+${languageInstruction}
+
 Create 5 practical meal ideas.
 
 IMPORTANT RULES:
@@ -1172,6 +1200,10 @@ ${currency === "PKR" ? "- Never estimate any single ingredient below Rs. 50 (the
 - Write every ingredient with its quantity first, for example "500 g chicken" or "2 eggs", for the full group of ${people} people.
 - Do not repeat ingredient quantities inside the recipe steps.
 - Nutrition values are rough per-serving estimates, not medical advice.
+- Write all text (meal names, ingredient names, steps, substitutions) in the RESPONSE LANGUAGE.
+- Keep these labels exactly in English, even when the response language is not English: "## 🍽️", "**Estimated Cost:**", "**Time:**", "**Difficulty:**", "**Nutrition (per serving):**", "**You Already Have:**", "**You May Need:**", "**Quick Recipe:**", "**Substitutions:**", and the words Calories, Protein, Carbs, Fat.
+- Use Latin digits (0-9) for all numbers and write units (g, kg, ml, cup, tbsp, tsp) in English letters.
+- For Difficulty write exactly Easy, Medium or Hard.
 
 FOR EACH MEAL USE THIS FORMAT:
 
@@ -1258,12 +1290,12 @@ Keep the response concise. Do not add any text after the last meal.
 
     if (savedRecipes.some((recipe) => recipe.id === id)) {
       setSavedRecipes(savedRecipes.filter((recipe) => recipe.id !== id));
-      showToast("Removed from saved");
+      showToast(t("toast.removedSaved"));
       return;
     }
 
     if (savedRecipes.length >= MAX_SAVED) {
-      showToast(`Limit of ${MAX_SAVED} saved recipes reached.`, "error");
+      showToast(t("toast.limit", { n: MAX_SAVED }), "error");
       return;
     }
 
@@ -1278,22 +1310,22 @@ Keep the response concise. Do not add any text after the last meal.
       },
       ...savedRecipes,
     ]);
-    showToast("Saved");
+    showToast(t("toast.saved"));
   }
 
   async function copyText(text: string) {
     try {
       await navigator.clipboard.writeText(text);
-      showToast("Copied");
+      showToast(t("toast.copied"));
     } catch (copyError) {
       console.error("Copy failed:", copyError);
-      showToast("Could not copy.", "error");
+      showToast(t("toast.copyFail"), "error");
     }
   }
 
   function sendToShoppingList(items: string[]) {
     if (items.length === 0) {
-      showToast("Nothing to add.");
+      showToast(t("toast.nothing"));
       return;
     }
 
@@ -1306,7 +1338,7 @@ Keep the response concise. Do not add any text after the last meal.
       router.push("/shopping-list");
     } catch (storageError) {
       console.error("Could not open shopping list:", storageError);
-      showToast("Could not open the shopping list.", "error");
+      showToast(t("toast.shopFail"), "error");
     }
   }
 
@@ -1336,7 +1368,12 @@ Keep the response concise. Do not add any text after the last meal.
       },
     ]);
 
-    showToast(`Added to ${pickDay} ${pickSlot}`);
+    showToast(
+      t("toast.added", {
+        day: label("day", pickDay),
+        slot: label("opt", pickSlot),
+      })
+    );
     setPlanTarget(null);
   }
 
@@ -1487,10 +1524,10 @@ Keep the response concise. Do not add any text after the last meal.
       );
 
       setPlanSaved(true);
-      showToast("Plan saved");
+      showToast(t("toast.planSaved"));
     } catch (saveError) {
       console.error("Could not save the cooking plan:", saveError);
-      showToast("Could not save the plan.", "error");
+      showToast(t("toast.planFail"), "error");
     } finally {
       setSavingPlan(false);
     }
@@ -1523,12 +1560,12 @@ Keep the response concise. Do not add any text after the last meal.
   };
 
   const syncNote = signedIn ? (
-    <p className="mb-3 text-xs text-zinc-500">Synced to your account.</p>
+    <p className="mb-3 text-xs text-zinc-500">{t("cook.synced")}</p>
   ) : (
     <p className="mb-3 text-xs text-zinc-500">
-      Stored on this device.{" "}
+      {t("cook.localOnly")}{" "}
       <Link href="/login" className="underline hover:text-zinc-800">
-        Sign in to sync
+        {t("cook.signInSync")}
       </Link>
     </p>
   );
@@ -1541,7 +1578,7 @@ Keep the response concise. Do not add any text after the last meal.
     <main className="min-h-screen bg-zinc-50 text-zinc-900">
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-          What can I cook?
+          {t("cook.title")}
         </h1>
 
         <div className="mt-6 grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
@@ -1552,7 +1589,7 @@ Keep the response concise. Do not add any text after the last meal.
           >
             <div>
               <label htmlFor="ingredient-input" className={labelClass}>
-                Ingredients
+                {t("cook.ingredients")}
               </label>
 
               <input
@@ -1568,7 +1605,7 @@ Keep the response concise. Do not add any text after the last meal.
                 }}
                 onBlur={() => addIngredients(draft)}
                 maxLength={60}
-                placeholder="Type an ingredient, press Enter"
+                placeholder={t("cook.ingredientPlaceholder")}
                 autoComplete="off"
                 className={fieldClass}
               />
@@ -1580,11 +1617,11 @@ Keep the response concise. Do not add any text after the last meal.
                       key={item}
                       className="inline-flex items-center gap-0.5 rounded-md bg-zinc-100 py-1 pl-2.5 pr-1 text-sm"
                     >
-                      {item}
+                      {label("ing", item)}
                       <button
                         type="button"
                         onClick={() => removeIngredient(item)}
-                        aria-label={`Remove ${item}`}
+                        aria-label={t("cook.removeItem", { x: label("ing", item) })}
                         className="flex size-5 items-center justify-center rounded text-zinc-500 outline-none hover:bg-zinc-200 hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-orange-500"
                       >
                         <Icon name="x" className="size-3" />
@@ -1604,7 +1641,7 @@ Keep the response concise. Do not add any text after the last meal.
                       onClick={() => addIngredients(item)}
                       className="rounded-md border border-dashed border-zinc-300 px-2 py-1 text-xs text-zinc-600 outline-none transition hover:border-orange-400 hover:text-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500"
                     >
-                      + {item}
+                      + {label("ing", item)}
                     </button>
                   ))}
                 </div>
@@ -1614,7 +1651,7 @@ Keep the response concise. Do not add any text after the last meal.
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="cuisine" className={labelClass}>
-                  Cuisine
+                  {t("cook.cuisine")}
                 </label>
                 <select
                   id="cuisine"
@@ -1623,14 +1660,16 @@ Keep the response concise. Do not add any text after the last meal.
                   className={fieldClass}
                 >
                   {CUISINES.map((item) => (
-                    <option key={item}>{item}</option>
+                    <option key={item} value={item}>
+                      {label("opt", item)}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div>
                 <label htmlFor="diet" className={labelClass}>
-                  Diet
+                  {t("cook.diet")}
                 </label>
                 <select
                   id="diet"
@@ -1639,14 +1678,16 @@ Keep the response concise. Do not add any text after the last meal.
                   className={fieldClass}
                 >
                   {DIETS.map((item) => (
-                    <option key={item}>{item}</option>
+                    <option key={item} value={item}>
+                      {label("opt", item)}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div>
                 <label htmlFor="time" className={labelClass}>
-                  Time (min)
+                  {t("cook.time")}
                 </label>
                 <input
                   id="time"
@@ -1662,7 +1703,7 @@ Keep the response concise. Do not add any text after the last meal.
 
               <div>
                 <label htmlFor="people" className={labelClass}>
-                  People
+                  {t("cook.people")}
                 </label>
                 <input
                   id="people"
@@ -1679,12 +1720,12 @@ Keep the response concise. Do not add any text after the last meal.
 
             <div>
               <label htmlFor="budget" className={labelClass}>
-                Budget
+                {t("cook.budget")}
               </label>
 
               <div className="flex gap-2">
                 <select
-                  aria-label="Currency"
+                  aria-label={t("cook.currency")}
                   value={currency}
                   onChange={(event) =>
                     changeCurrency(event.target.value as CurrencyCode)
@@ -1712,11 +1753,10 @@ Keep the response concise. Do not add any text after the last meal.
             <details className="group rounded-lg border border-zinc-200">
               <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
                 <span>
-                  More options
+                  {t("cook.more")}
                   {allergies.length > 0 && (
-                    <span className="ml-1.5 text-xs font-normal text-zinc-500">
-                      {allergies.length} allergy filter
-                      {allergies.length > 1 ? "s" : ""}
+                    <span className="ms-1.5 text-xs font-normal text-zinc-500">
+                      {t("cook.allergyCount", { n: allergies.length })}
                     </span>
                   )}
                 </span>
@@ -1730,7 +1770,7 @@ Keep the response concise. Do not add any text after the last meal.
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="difficulty" className={labelClass}>
-                      Difficulty
+                      {t("cook.difficulty")}
                     </label>
                     <select
                       id="difficulty"
@@ -1739,14 +1779,16 @@ Keep the response concise. Do not add any text after the last meal.
                       className={fieldClass}
                     >
                       {DIFFICULTIES.map((item) => (
-                        <option key={item}>{item}</option>
+                        <option key={item} value={item}>
+                      {label("opt", item)}
+                    </option>
                       ))}
                     </select>
                   </div>
 
                   <div>
                     <label htmlFor="meal-type" className={labelClass}>
-                      Meal
+                      {t("cook.meal")}
                     </label>
                     <select
                       id="meal-type"
@@ -1755,7 +1797,9 @@ Keep the response concise. Do not add any text after the last meal.
                       className={fieldClass}
                     >
                       {MEAL_TYPES.map((item) => (
-                        <option key={item}>{item}</option>
+                        <option key={item} value={item}>
+                      {label("opt", item)}
+                    </option>
                       ))}
                     </select>
                   </div>
@@ -1763,7 +1807,7 @@ Keep the response concise. Do not add any text after the last meal.
 
                 <div>
                   <label htmlFor="mode" className={labelClass}>
-                    Goal
+                    {t("cook.goal")}
                   </label>
                   <select
                     id="mode"
@@ -1773,18 +1817,18 @@ Keep the response concise. Do not add any text after the last meal.
                   >
                     {MODES.map((item) => (
                       <option key={item.id} value={item.id}>
-                        {item.label}
+                        {t(item.label as TranslationKey)}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <span className={labelClass}>Allergies</span>
+                  <span className={labelClass}>{t("cook.allergies")}</span>
                   <div
                     className="flex flex-wrap gap-1.5"
                     role="group"
-                    aria-label="Allergies"
+                    aria-label={t("cook.allergies")}
                   >
                     {ALLERGIES.map((item) => {
                       const active = allergies.includes(item);
@@ -1801,7 +1845,7 @@ Keep the response concise. Do not add any text after the last meal.
                               : "border-zinc-300 text-zinc-600 hover:border-zinc-400"
                           }`}
                         >
-                          {item}
+                          {label("opt", item)}
                         </button>
                       );
                     })}
@@ -1810,7 +1854,7 @@ Keep the response concise. Do not add any text after the last meal.
 
                 <div>
                   <label htmlFor="notes" className={labelClass}>
-                    Notes
+                    {t("cook.notes")}
                   </label>
                   <input
                     id="notes"
@@ -1818,7 +1862,7 @@ Keep the response concise. Do not add any text after the last meal.
                     value={notes}
                     onChange={(event) => setNotes(event.target.value)}
                     maxLength={200}
-                    placeholder="e.g. less spicy"
+                    placeholder={t("cook.notesPlaceholder")}
                     className={fieldClass}
                   />
                 </div>
@@ -1831,7 +1875,7 @@ Keep the response concise. Do not add any text after the last meal.
                 disabled={loading}
                 className="h-11 flex-1 rounded-lg bg-orange-600 px-4 text-sm font-semibold text-white outline-none transition hover:bg-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? "Finding recipes…" : "Find recipes"}
+                {loading ? t("cook.finding") : t("cook.find")}
               </button>
 
               {(ingredients.length > 0 || result) && (
@@ -1840,7 +1884,7 @@ Keep the response concise. Do not add any text after the last meal.
                   onClick={clearAll}
                   className="h-11 rounded-lg px-3 text-sm text-zinc-500 outline-none hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-orange-500"
                 >
-                  Clear
+                  {t("cook.clear")}
                 </button>
               )}
             </div>
@@ -1856,10 +1900,10 @@ Keep the response concise. Do not add any text after the last meal.
           </form>
 
           {/* Output */}
-          <section ref={resultsRef} aria-label="Recipes" className="min-w-0">
+          <section ref={resultsRef} aria-label={t("cook.recipesAria")} className="min-w-0">
             <div
               role="tablist"
-              aria-label="Views"
+              aria-label={t("tab.views")}
               onKeyDown={handleTabKeys}
               className="flex gap-1 border-b border-zinc-200"
             >
@@ -1883,7 +1927,7 @@ Keep the response concise. Do not add any text after the last meal.
                         : "border-transparent text-zinc-500 hover:text-zinc-800"
                     }`}
                   >
-                    {item.label}
+                    {t(item.label as TranslationKey)}
                     {count > 0 && (
                       <span className="ml-1.5 text-xs text-zinc-400">
                         {count}
@@ -1904,7 +1948,7 @@ Keep the response concise. Do not add any text after the last meal.
               >
                 {loading ? (
                   <div className="space-y-3" role="status" aria-live="polite">
-                    <span className="sr-only">Finding recipes</span>
+                    <span className="sr-only">{t("cook.finding")}</span>
                     {[0, 1, 2].map((item) => (
                       <div
                         key={item}
@@ -1936,13 +1980,13 @@ Keep the response concise. Do not add any text after the last meal.
                 ) : result ? (
                   <div className="rounded-xl border border-zinc-200 bg-white p-4">
                     <p className="mb-3 text-xs text-zinc-500">
-                      Recipes could not be structured. Showing the raw reply.
+                      {t("cook.raw")}
                     </p>
                     <Markdown text={result} />
                   </div>
                 ) : (
                   <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500">
-                    Add ingredients, then press Find recipes.
+                    {t("cook.empty")}
                   </p>
                 )}
               </div>
@@ -1990,7 +2034,7 @@ Keep the response concise. Do not add any text after the last meal.
                   </div>
                 ) : (
                   <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500">
-                    No saved recipes.
+                    {t("cook.noSaved")}
                   </p>
                 )}
               </div>
@@ -2046,8 +2090,8 @@ Keep the response concise. Do not add any text after the last meal.
                                           )
                                         )
                                       }
-                                      aria-label={`Remove ${meal.title}`}
-                                      title="Remove"
+                                      aria-label={`${t("cook.removeTitle")} ${meal.title}`}
+                                      title={t("cook.removeTitle")}
                                       className={iconButton}
                                     >
                                       <Icon name="x" />
@@ -2063,7 +2107,7 @@ Keep the response concise. Do not add any text after the last meal.
                     <div className="mt-5 flex flex-wrap items-center gap-2">
                       {planTotal() && (
                         <span className="mr-auto text-sm text-zinc-600">
-                          Estimated cost{" "}
+                          {t("cook.estCost")}{" "}
                           <span className="font-semibold text-zinc-900">
                             {planTotal()}
                           </span>
@@ -2075,7 +2119,7 @@ Keep the response concise. Do not add any text after the last meal.
                         onClick={() => sendToShoppingList(planShoppingItems())}
                         className="h-10 rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium outline-none transition hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-orange-500"
                       >
-                        Shopping list
+                        {t("cook.shoppingList")}
                       </button>
 
                       {planSaved ? (
@@ -2083,7 +2127,7 @@ Keep the response concise. Do not add any text after the last meal.
                           href="/saved-plans"
                           className="inline-flex h-10 items-center rounded-lg border border-green-300 bg-green-50 px-4 text-sm font-medium text-green-700 outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                         >
-                          Saved. Open
+                          {t("cook.savedOpen")}
                         </Link>
                       ) : (
                         <button
@@ -2092,7 +2136,7 @@ Keep the response concise. Do not add any text after the last meal.
                           disabled={savingPlan}
                           className="h-10 rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium outline-none transition hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-orange-500 disabled:opacity-60"
                         >
-                          {savingPlan ? "Saving…" : "Save plan"}
+                          {savingPlan ? t("cook.saving") : t("cook.savePlan")}
                         </button>
                       )}
 
@@ -2100,10 +2144,10 @@ Keep the response concise. Do not add any text after the last meal.
                         type="button"
                         onClick={() => {
                           updatePlan([]);
-                          showToast("Plan cleared");
+                          showToast(t("toast.planCleared"));
                         }}
-                        aria-label="Clear plan"
-                        title="Clear plan"
+                        aria-label={t("cook.clearPlan")}
+                        title={t("cook.clearPlan")}
                         className={`${iconButton} size-10 hover:text-red-600`}
                       >
                         <Icon name="trash" />
@@ -2112,7 +2156,7 @@ Keep the response concise. Do not add any text after the last meal.
                   </>
                 ) : (
                   <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500">
-                    No meals planned.
+                    {t("cook.noPlan")}
                   </p>
                 )}
               </div>
@@ -2135,7 +2179,7 @@ Keep the response concise. Do not add any text after the last meal.
             className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl"
           >
             <h2 id="plan-dialog-title" className="font-semibold">
-              Add to plan
+              {t("cook.planAdd")}
             </h2>
 
             <p className="mt-0.5 truncate text-sm text-zinc-500">
@@ -2145,7 +2189,7 @@ Keep the response concise. Do not add any text after the last meal.
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="plan-day" className={labelClass}>
-                  Day
+                  {t("cook.day")}
                 </label>
                 <select
                   id="plan-day"
@@ -2154,14 +2198,16 @@ Keep the response concise. Do not add any text after the last meal.
                   className={fieldClass}
                 >
                   {MEAL_DAYS.map((day) => (
-                    <option key={day}>{day}</option>
+                    <option key={day} value={day}>
+                      {label("day", day)}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div>
                 <label htmlFor="plan-slot" className={labelClass}>
-                  Meal
+                  {t("cook.meal")}
                 </label>
                 <select
                   id="plan-slot"
@@ -2170,7 +2216,9 @@ Keep the response concise. Do not add any text after the last meal.
                   className={fieldClass}
                 >
                   {MEAL_SLOTS.map((slot) => (
-                    <option key={slot}>{slot}</option>
+                    <option key={slot} value={slot}>
+                      {label("opt", slot)}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -2178,7 +2226,7 @@ Keep the response concise. Do not add any text after the last meal.
 
             {plannedMeals.some((meal) => meal.id === `${pickDay}|${pickSlot}`) && (
               <p className="mt-3 text-xs text-amber-700">
-                This slot is taken. It will be replaced.
+                {t("cook.slotTaken")}
               </p>
             )}
 
@@ -2188,7 +2236,7 @@ Keep the response concise. Do not add any text after the last meal.
                 onClick={() => setPlanTarget(null)}
                 className="h-10 rounded-lg px-4 text-sm text-zinc-600 outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-orange-500"
               >
-                Cancel
+                {t("cook.cancel")}
               </button>
 
               <button
@@ -2197,7 +2245,7 @@ Keep the response concise. Do not add any text after the last meal.
                 onClick={confirmAddToPlan}
                 className="h-10 rounded-lg bg-orange-600 px-5 text-sm font-semibold text-white outline-none hover:bg-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
               >
-                Add
+                {t("cook.add")}
               </button>
             </div>
           </div>

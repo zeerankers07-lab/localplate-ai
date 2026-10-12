@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type KeyboardEvent } from "react";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 const BUDGETS = ["500", "1000", "2000"];
 const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner"];
@@ -60,9 +62,9 @@ function Icon({
   );
 }
 
-const TABS: { id: Tab; label: string; icon: IconName }[] = [
-  { id: "cook", label: "What can I cook?", icon: "utensils" },
-  { id: "plan", label: "Plan meals", icon: "calendar" },
+const TABS: { id: Tab; label: TranslationKey; icon: IconName }[] = [
+  { id: "cook", label: "qs.tabCook", icon: "utensils" },
+  { id: "plan", label: "qs.tabPlan", icon: "calendar" },
 ];
 
 const chipBase =
@@ -119,6 +121,7 @@ function OptionGroup({
 
 export default function QuickStart() {
   const router = useRouter();
+  const { t, label } = useI18n();
 
   const [tab, setTab] = useState<Tab>("cook");
 
@@ -205,7 +208,7 @@ export default function QuickStart() {
     <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-[0_24px_60px_-28px_rgba(234,88,12,0.35)] sm:p-7">
       <div
         role="tablist"
-        aria-label="Quick start options"
+        aria-label={t("qs.tabs")}
         onKeyDown={handleTabKeys}
         className="grid grid-cols-2 gap-1 rounded-xl bg-zinc-100 p-1"
       >
@@ -229,7 +232,7 @@ export default function QuickStart() {
               }`}
             >
               <Icon name={item.icon} />
-              {item.label}
+              {t(item.label)}
             </button>
           );
         })}
@@ -243,7 +246,7 @@ export default function QuickStart() {
           className="mt-6"
         >
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Ingredients
+            {t("qs.ingredients")}
           </p>
 
           <div className="mt-2.5 flex flex-wrap gap-2">
@@ -264,7 +267,7 @@ export default function QuickStart() {
                     name={active ? "check" : "plus"}
                     className="size-3.5"
                   />
-                  {item}
+                  {label("ing", item)}
                 </button>
               );
             })}
@@ -272,7 +275,7 @@ export default function QuickStart() {
 
           <div className="relative mt-4">
             <label htmlFor="quickstart-custom" className="sr-only">
-              Add another ingredient
+              {t("qs.addAria")}
             </label>
 
             <Icon
@@ -292,7 +295,7 @@ export default function QuickStart() {
                 }
               }}
               maxLength={40}
-              placeholder="Add another ingredient, press Enter"
+              placeholder={t("qs.addPlaceholder")}
               className="h-12 w-full rounded-xl border border-zinc-200 bg-zinc-50 pl-10 pr-4 text-base outline-none transition placeholder:text-zinc-400 focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-100 sm:text-sm"
             />
           </div>
@@ -300,8 +303,8 @@ export default function QuickStart() {
           <div className="mt-6 flex flex-col gap-4 border-t border-zinc-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-zinc-500" aria-live="polite">
               {selected.length > 0
-                ? `${selected.length} selected`
-                : "Pick at least one ingredient"}
+                ? t("qs.selected", { n: selected.length })
+                : t("qs.pickOne")}
             </p>
 
             <button
@@ -310,7 +313,7 @@ export default function QuickStart() {
               disabled={selected.length === 0}
               className={primaryButton}
             >
-              Find recipes
+              {t("qs.find")}
               <Icon name="arrow" />
             </button>
           </div>
@@ -324,7 +327,7 @@ export default function QuickStart() {
         >
           <div className="grid gap-6 sm:grid-cols-2">
             <OptionGroup
-              label="Budget"
+              label={t("qs.budget")}
               options={BUDGETS}
               value={budget}
               onChange={setBudget}
@@ -332,24 +335,27 @@ export default function QuickStart() {
             />
 
             <OptionGroup
-              label="Meal"
+              label={t("qs.meal")}
               options={MEAL_TYPES}
               value={mealType}
               onChange={setMealType}
+              format={(option) => label("opt", option)}
             />
 
             <OptionGroup
-              label="Diet"
+              label={t("qs.diet")}
               options={DIETS}
               value={diet}
               onChange={setDiet}
+              format={(option) => label("opt", option)}
             />
 
             <OptionGroup
-              label="Goal"
+              label={t("qs.goal")}
               options={GOALS}
               value={goal}
               onChange={setGoal}
+              format={(option) => label("opt", option)}
             />
           </div>
 
@@ -363,7 +369,7 @@ export default function QuickStart() {
               onClick={startPlanning}
               className={primaryButton}
             >
-              Build plan
+              {t("qs.build")}
               <Icon name="arrow" />
             </button>
           </div>

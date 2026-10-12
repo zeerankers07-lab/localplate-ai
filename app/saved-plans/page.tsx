@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 
 const PAGE_SIZE = 8;
 
@@ -75,6 +76,7 @@ const planTime = (plan: SavedPlan) => {
 };
 
 export default function SavedPlansPage() {
+    const { t } = useI18n();
     const router = useRouter();
 
     const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
@@ -165,11 +167,11 @@ export default function SavedPlansPage() {
                 current.filter((planId) => planId !== id)
             );
 
-            showToast("Plan deleted");
+            showToast(t("sp.tDeleted"));
             return true;
         } catch (error) {
             console.error("Failed to delete saved plan:", error);
-            showToast("Could not delete the plan. Please try again.", "error");
+            showToast(t("sp.tDeleteFail"), "error");
             return false;
         }
     };
@@ -223,12 +225,12 @@ export default function SavedPlansPage() {
 
             showToast(
                 nextFavorite
-                    ? "Added to favorites"
-                    : "Removed from favorites"
+                    ? t("sp.tFavAdd")
+                    : t("sp.tFavRemove")
             );
         } catch (error) {
             console.error("Failed to update favorite:", error);
-            showToast("Could not update favorite. Please try again.", "error");
+            showToast(t("sp.tFavFail"), "error");
         }
     };
 
@@ -243,10 +245,10 @@ export default function SavedPlansPage() {
     const copyPlan = async (plan: SavedPlan) => {
         try {
             await navigator.clipboard.writeText(plan.mealPlan);
-            showToast("Meal plan copied");
+            showToast(t("sp.tCopied"));
         } catch (error) {
             console.error("Failed to copy plan:", error);
-            showToast("Could not copy the plan.", "error");
+            showToast(t("sp.tCopyFail"), "error");
         }
     };
 
@@ -256,7 +258,7 @@ export default function SavedPlansPage() {
             router.push("/shopping-list");
         } catch (error) {
             console.error("Failed to open shopping list:", error);
-            showToast("Could not open the shopping list.", "error");
+            showToast(t("toast.shopFail"), "error");
         }
     };
 
@@ -311,7 +313,7 @@ export default function SavedPlansPage() {
             window.location.href = "/planner";
         } catch (error) {
             console.error("Failed to reuse saved plan:", error);
-            showToast("Could not reuse this plan. Please try again.", "error");
+            showToast(t("sp.tReuseFail"), "error");
         }
     };
 
@@ -496,7 +498,7 @@ export default function SavedPlansPage() {
                     <button
                         type="button"
                         onClick={handleBack}
-                        aria-label="Go back"
+                        aria-label={t("sp.goBack")}
                         className="group inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-orange-200 bg-white pl-3 pr-4 text-sm font-bold text-orange-700 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 active:scale-95"
                     >
                         <span
@@ -505,36 +507,34 @@ export default function SavedPlansPage() {
                         >
                             ←
                         </span>
-                        <span>Back</span>
+                        <span>{t("sp.back")}</span>
                     </button>
 
                     <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-zinc-900">
-                            Saved Plans
+                            {t("nav.saved")}
                         </p>
                         <p className="truncate text-xs text-zinc-500">
-                            {savedPlans.length} saved · {favoriteCount} favorites
+                            {t("sp.summaryShort", { n: savedPlans.length, f: favoriteCount })}
                         </p>
                     </div>
 
                     <a
                         href="/shopping-list"
-                        aria-label="Shopping List"
+                        aria-label={t("nav.shopping")}
                         className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-green-200 bg-white px-3.5 text-sm font-bold text-green-700 shadow-sm transition hover:bg-green-50 active:scale-95 sm:px-4"
                     >
                         <span aria-hidden="true">🛒</span>
-                        <span className="hidden sm:inline">Shopping List</span>
+                        <span className="hidden sm:inline">{t("nav.shopping")}</span>
                     </a>
 
                     <a
                         href="/planner"
-                        aria-label="Create new meal plan"
+                        aria-label={t("sp.newAria")}
                         className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-orange-600 px-4 text-sm font-bold text-white shadow-sm shadow-orange-200 transition hover:bg-orange-700 active:scale-95"
                     >
                         <span aria-hidden="true">＋</span>
-                        <span>
-                            New<span className="hidden sm:inline"> Plan</span>
-                        </span>
+                        <span>{t("sp.newPlan")}</span>
                     </a>
                 </div>
             </header>
@@ -543,12 +543,16 @@ export default function SavedPlansPage() {
                 {/* Title */}
                 <section>
                     <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                        Saved plans
+                        {t("home.saved")}
                     </h1>
 
                     <p className="mt-1.5 text-sm text-zinc-500">
-                        {savedPlans.length} total · {favoriteCount} favorites ·{" "}
-                        {weeklyCount} weekly · {singleCount} single
+                        {t("sp.summary", {
+                            n: savedPlans.length,
+                            f: favoriteCount,
+                            w: weeklyCount,
+                            s: singleCount,
+                        })}
                     </p>
                 </section>
 
@@ -569,7 +573,7 @@ export default function SavedPlansPage() {
                                 onChange={(event) =>
                                     setSearchTerm(event.target.value)
                                 }
-                                placeholder="Search meals, diets, ingredients..."
+                                placeholder={t("sp.search")}
                                 className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 py-3 pl-11 pr-10 text-sm outline-none transition placeholder:text-zinc-400 focus:border-orange-500 focus:bg-white focus:ring-4 focus:ring-orange-100"
                             />
 
@@ -577,7 +581,7 @@ export default function SavedPlansPage() {
                                 <button
                                     type="button"
                                     onClick={() => setSearchTerm("")}
-                                    aria-label="Clear search"
+                                    aria-label={t("sp.clearSearch")}
                                     className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-xs text-zinc-400 transition hover:bg-zinc-200 hover:text-zinc-700"
                                 >
                                     ✕
@@ -590,22 +594,22 @@ export default function SavedPlansPage() {
                             onChange={(event) =>
                                 setSort(event.target.value as PlanSort)
                             }
-                            aria-label="Sort plans"
+                            aria-label={t("sp.sortAria")}
                             className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-semibold text-zinc-700 outline-none transition focus:border-orange-500 focus:bg-white focus:ring-4 focus:ring-orange-100 lg:w-52"
                         >
-                            <option value="newest">Newest first</option>
-                            <option value="oldest">Oldest first</option>
-                            <option value="favorites">Favorites first</option>
+                            <option value="newest">{t("sp.newest")}</option>
+                            <option value="oldest">{t("sp.oldest")}</option>
+                            <option value="favorites">{t("sp.favFirst")}</option>
                         </select>
                     </div>
 
                     <div className="-mx-1 mt-4 flex items-center gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
                         {(
                             [
-                                ["all", "All Plans", savedPlans.length],
-                                ["favorites", "⭐ Favorites", favoriteCount],
-                                ["weekly", "📅 Weekly", weeklyCount],
-                                ["single", "🍽️ Single", singleCount],
+                                ["all", t("sp.fAll"), savedPlans.length],
+                                ["favorites", t("sp.fFav"), favoriteCount],
+                                ["weekly", t("sp.fWeekly"), weeklyCount],
+                                ["single", t("sp.fSingle"), singleCount],
                             ] as [PlanFilter, string, number][]
                         ).map(([value, label, count]) => (
                             <button
@@ -636,7 +640,7 @@ export default function SavedPlansPage() {
                                 onClick={resetFilters}
                                 className="ml-1 shrink-0 text-sm font-bold text-orange-600 hover:text-orange-700"
                             >
-                                Reset
+                                {t("sp.reset")}
                             </button>
                         )}
                     </div>
@@ -668,19 +672,18 @@ export default function SavedPlansPage() {
                         </div>
 
                         <h2 className="mt-6 text-2xl font-bold text-zinc-900">
-                            No saved meal plans yet
+                            {t("sp.none")}
                         </h2>
 
                         <p className="mx-auto mt-3 max-w-md leading-7 text-zinc-500">
-                            Create your first personalized meal plan and save
-                            it here for easy access later.
+                            {t("sp.noneText")}
                         </p>
 
                         <a
                             href="/planner"
                             className="mt-7 inline-flex items-center rounded-full bg-orange-600 px-7 py-3.5 font-semibold text-white shadow-md transition hover:bg-orange-700 active:scale-95"
                         >
-                            Create My First Meal Plan →
+                            {t("sp.createFirst")}
                         </a>
                     </section>
                 ) : filteredPlans.length === 0 ? (
@@ -690,11 +693,11 @@ export default function SavedPlansPage() {
                         </div>
 
                         <h2 className="mt-5 text-xl font-bold text-zinc-800">
-                            No matching meal plans
+                            {t("sp.noMatch")}
                         </h2>
 
                         <p className="mt-2 text-sm text-zinc-500">
-                            Try another search term or reset the filters.
+                            {t("sp.noMatchText")}
                         </p>
 
                         <button
@@ -702,21 +705,21 @@ export default function SavedPlansPage() {
                             onClick={resetFilters}
                             className="mt-5 rounded-full bg-orange-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-orange-700 active:scale-95"
                         >
-                            Show All Plans
+                            {t("sp.showAll")}
                         </button>
                     </section>
                 ) : (
                     <>
                         <p className="mt-6 text-sm text-zinc-500">
-                            Showing{" "}
+                            {t("sp.showing")}{" "}
                             <span className="font-bold text-zinc-800">
                                 {shownPlans.length}
                             </span>{" "}
-                            of{" "}
+                            {t("sp.of")}{" "}
                             <span className="font-bold text-zinc-800">
                                 {filteredPlans.length}
                             </span>{" "}
-                            plans
+                            {t("sp.plans")}
                         </p>
 
                         <section className="mt-3 space-y-4 sm:space-y-5">
@@ -743,8 +746,8 @@ export default function SavedPlansPage() {
                                                                 }`}
                                                         >
                                                             {weekly
-                                                                ? "📅 Weekly plan"
-                                                                : "🍽️ Single meal"}
+                                                                ? `📅 ${t("sp.weeklyPlan")}`
+                                                                : `🍽️ ${t("sp.singleMeal")}`}
                                                         </span>
 
                                                         <span>
@@ -785,8 +788,8 @@ export default function SavedPlansPage() {
                                                     aria-pressed={plan.favorite}
                                                     aria-label={
                                                         plan.favorite
-                                                            ? "Remove from favorites"
-                                                            : "Add to favorites"
+                                                            ? t("sp.unfav")
+                                                            : t("sp.fav")
                                                     }
                                                     className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl transition active:scale-90 ${plan.favorite
                                                             ? "bg-yellow-100 text-yellow-500 hover:bg-yellow-200"
@@ -866,8 +869,8 @@ export default function SavedPlansPage() {
                                                     ▾
                                                 </span>
                                                 {isOpen
-                                                    ? "Hide full meal plan"
-                                                    : "View full meal plan"}
+                                                    ? t("sp.hide")
+                                                    : t("sp.view")}
                                             </button>
                                         </div>
 
@@ -946,7 +949,7 @@ export default function SavedPlansPage() {
                                                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-orange-700 active:scale-[0.97] sm:rounded-full sm:px-5"
                                             >
                                                 <span aria-hidden="true">🔁</span>
-                                                Use Again
+                                                {t("sp.useAgain")}
                                             </button>
 
                                             <button
@@ -955,7 +958,7 @@ export default function SavedPlansPage() {
                                                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 text-sm font-bold text-green-700 transition hover:bg-green-100 active:scale-[0.97] sm:rounded-full sm:px-5"
                                             >
                                                 <span aria-hidden="true">🛒</span>
-                                                Shopping List
+                                                {t("nav.shopping")}
                                             </button>
 
                                             <button
@@ -964,7 +967,7 @@ export default function SavedPlansPage() {
                                                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 active:scale-[0.97] sm:rounded-full sm:px-5"
                                             >
                                                 <span aria-hidden="true">📋</span>
-                                                Copy
+                                                {t("sp.copy")}
                                             </button>
 
                                             <button
@@ -973,7 +976,7 @@ export default function SavedPlansPage() {
                                                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 text-sm font-bold text-red-600 transition hover:bg-red-100 active:scale-[0.97] sm:rounded-full sm:px-5"
                                             >
                                                 <span aria-hidden="true">🗑️</span>
-                                                Delete
+                                                {t("sp.delete")}
                                             </button>
                                         </div>
                                     </article>
@@ -1051,14 +1054,13 @@ export default function SavedPlansPage() {
                                     id="delete-plan-title"
                                     className="text-xl font-bold text-zinc-900"
                                 >
-                                    Delete this plan?
+                                    {t("sp.delTitle")}
                                 </h3>
                                 <p
                                     id="delete-plan-desc"
                                     className="mt-1 text-sm leading-6 text-zinc-500"
                                 >
-                                    Ye plan hamesha ke liye delete ho jayega aur
-                                    wapas nahi aayega.
+                                    {t("sp.delText")}
                                 </p>
                             </div>
                         </div>
@@ -1066,8 +1068,8 @@ export default function SavedPlansPage() {
                         <div className="mt-5 rounded-2xl bg-zinc-50 px-4 py-3">
                             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
                                 {isWeeklyPlan(planToDelete)
-                                    ? "Weekly plan"
-                                    : "Single meal"}
+                                    ? t("sp.weeklyPlan")
+                                    : t("sp.singleMeal")}
                             </p>
                             <p className="mt-1 line-clamp-2 text-sm font-bold text-zinc-900">
                                 {getPlanTitle(planToDelete)}
@@ -1081,7 +1083,7 @@ export default function SavedPlansPage() {
                                 disabled={deleting}
                                 className="inline-flex min-h-12 items-center justify-center rounded-full border border-zinc-200 bg-white px-6 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                Cancel
+                                {t("cook.cancel")}
                             </button>
 
                             <button
@@ -1093,10 +1095,10 @@ export default function SavedPlansPage() {
                                 {deleting ? (
                                     <>
                                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                                        Deleting...
+                                        {t("sp.deleting")}
                                     </>
                                 ) : (
-                                    "Yes, delete plan"
+                                    t("sp.confirmDelete")
                                 )}
                             </button>
                         </div>

@@ -11,6 +11,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 // =========================
 // Options
@@ -84,6 +86,15 @@ function hasListItem(current: string, item: string) {
     (entry) => entry.toLowerCase() === item.toLowerCase()
   );
 }
+
+const HEADING_KEYS: Record<string, TranslationKey> = {
+  "🛒 Ingredients": "pl.hIngredients",
+  "👨‍🍳 Cooking Instructions": "pl.hSteps",
+  "💰 Estimated Cost": "pl.hCost",
+  "⏱️ Cooking Time": "pl.hTime",
+  "🎯 Why This Fits You": "pl.hWhy",
+  "💡 LocalPlate Tip": "pl.hTip",
+};
 
 type ChipGroupProps = {
   options: string[];
@@ -162,6 +173,20 @@ const inputClass =
 // =========================
 
 export default function PlannerPage() {
+  const { t, label, lang } = useI18n();
+
+  const trHeading = (children: React.ReactNode) => {
+    const text =
+      typeof children === "string"
+        ? children
+        : Array.isArray(children) && children.every((c) => typeof c === "string")
+          ? children.join("")
+          : null;
+    const key = text ? HEADING_KEYS[text.trim()] : undefined;
+
+    return key ? t(key) : children;
+  };
+
   const router = useRouter();
 
   // Planner preferences
@@ -315,7 +340,7 @@ export default function PlannerPage() {
     setDislikes("");
     setPantry("");
     setExtraPreferences("");
-    showToast("Preferences reset");
+    showToast(t("pl.tReset"));
   };
 
   // =========================
@@ -326,7 +351,7 @@ export default function PlannerPage() {
     if (loading) return;
 
     if (!budget || Number(budget) <= 0) {
-      showToast("Please enter a valid budget.", "error");
+      showToast(t("pl.tBudget"), "error");
       return;
     }
 
@@ -445,6 +470,7 @@ IMPORTANT RULES
 24. Do not give multiple alternatives.
 
 25. Do not write a long introduction.
+26. Write the meal name, description, ingredient names, steps, bullet points and tip in ${lang === "ur" ? "Urdu (اردو), in Urdu script, not Roman Urdu" : lang === "hi" ? "Hindi (हिन्दी), in Devanagari script" : "English"}. Keep every "#" section heading exactly as shown in the response format below (in English). Use Latin digits (0-9) and write units such as g, kg, ml in English letters.
 
 =========================
 RESPONSE FORMAT
@@ -498,15 +524,15 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Something went wrong");
+        throw new Error(data.error || t("pl.wrong"));
       }
 
-      setMealPlan(data.reply || "No meal plan received.");
+      setMealPlan(data.reply || t("pl.noPlan"));
     } catch (error) {
       console.error("Meal generation error:", error);
 
       setErrorMessage(
-        "Meal plan could not be generated. Please try again."
+        t("pl.genFail")
       );
     } finally {
       setLoading(false);
@@ -625,11 +651,11 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
       );
 
       setSaved(true);
-      showToast("Meal plan saved");
+      showToast(t("pl.tSaved"));
     } catch (error) {
       console.error("Failed to save meal plan:", error);
 
-      showToast("Could not save the meal plan. Please try again.", "error");
+      showToast(t("pl.tSaveFail"), "error");
     } finally {
       setSavingPlan(false);
     }
@@ -638,10 +664,10 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
   const copyMealPlan = async () => {
     try {
       await navigator.clipboard.writeText(mealPlan);
-      showToast("Meal plan copied");
+      showToast(t("sp.tCopied"));
     } catch (error) {
       console.error("Failed to copy meal plan:", error);
-      showToast("Could not copy the meal plan.", "error");
+      showToast(t("sp.tCopyFail"), "error");
     }
   };
 
@@ -665,14 +691,14 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
   };
 
   const summaryRows: [string, string][] = [
-    ["Food", foodType],
-    ["Meal", mealType],
-    ["Budget", budget ? `Rs. ${budget}` : "—"],
-    ["People", servings],
-    ["Goal", goal],
-    ["Diet", diet],
-    ["Time", `${time} min`],
-    ["Spice", spiceLevel],
+    [t("pl.food"), label("opt", foodType)],
+    [t("cook.meal"), label("opt", mealType)],
+    [t("cook.budget"), budget ? `Rs. ${budget}` : "—"],
+    [t("cook.people"), servings],
+    [t("cook.goal"), label("opt", goal)],
+    [t("cook.diet"), label("opt", diet)],
+    [t("pl.time"), t("unit.min", { n: time })],
+    [t("pl.spice"), label("opt", spiceLevel)],
   ];
 
   const pantryCount = splitList(pantry).length;
@@ -692,7 +718,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
           <button
             type="button"
             onClick={handleBack}
-            aria-label="Go back"
+            aria-label={t("sp.goBack")}
             className="group inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-orange-200 bg-white pl-3 pr-4 text-sm font-bold text-orange-700 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 active:scale-95"
           >
             <span
@@ -701,21 +727,22 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
             >
               ←
             </span>
-            <span>Back</span>
+            <span>{t("sp.back")}</span>
           </button>
 
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold text-zinc-900">
-              AI Meal Planner
+              {t("pl.aiPlanner")}
             </p>
             <p className="truncate text-xs text-zinc-500">
-              Rs. {budget || "—"} · {mealType} · {servings} people
+              Rs. {budget || "—"} · {label("opt", mealType)} ·{" "}
+              {t("pl.people", { n: servings })}
             </p>
           </div>
 
           <Link
             href="/weekly-plan"
-            aria-label="Weekly Plan"
+            aria-label={t("nav.weekly")}
             className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-indigo-200 bg-white px-3.5 text-sm font-bold text-indigo-700 shadow-sm transition hover:bg-indigo-50 active:scale-95 sm:px-4"
           >
             <span aria-hidden="true">📅</span>
@@ -724,7 +751,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
 
           <Link
             href="/saved-plans"
-            aria-label="Saved Plans"
+            aria-label={t("nav.saved")}
             className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-zinc-200 bg-white px-3.5 text-sm font-bold text-zinc-800 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 active:scale-95 sm:px-4"
           >
             <span aria-hidden="true">💾</span>
@@ -737,7 +764,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
         {/* Title */}
         <section>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Meal planner
+            {t("pl.title")}
           </h1>
         </section>
 
@@ -751,29 +778,31 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
             {/* Step 1 */}
             <StepCard
               step={1}
-              title="The basics"
-              subtitle="Food style, meal, budget and people"
+              title={t("pl.step1")}
+              subtitle={t("pl.step1sub")}
             >
               <div>
-                <FieldLabel>What kind of food do you prefer?</FieldLabel>
+                <FieldLabel>{t("pl.qFood")}</FieldLabel>
                 <ChipGroup
                   options={FOOD_TYPES}
+                  format={(option) => label("opt", option)}
                   value={foodType}
                   onChange={setFoodType}
                 />
               </div>
 
               <div>
-                <FieldLabel>Which meal are you planning?</FieldLabel>
+                <FieldLabel>{t("pl.qMeal")}</FieldLabel>
                 <ChipGroup
                   options={MEAL_TYPES}
+                  format={(option) => label("opt", option)}
                   value={mealType}
                   onChange={setMealType}
                 />
               </div>
 
               <div>
-                <FieldLabel>Budget for this meal</FieldLabel>
+                <FieldLabel>{t("pl.qBudget")}</FieldLabel>
                 <ChipGroup
                   options={BUDGETS}
                   value={budget}
@@ -792,15 +821,15 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                     onChange={(event) =>
                       setBudget(event.target.value.replace(/\D/g, "").slice(0, 6))
                     }
-                    placeholder="Or type your own budget"
-                    aria-label="Custom budget"
+                    placeholder={t("pl.phBudget")}
+                    aria-label={t("pl.customBudget")}
                     className="w-full rounded-xl border border-zinc-200 bg-white py-3 pl-12 pr-4 text-base outline-none transition placeholder:text-zinc-400 focus:border-orange-500 focus:ring-4 focus:ring-orange-100 sm:text-sm"
                   />
                 </div>
               </div>
 
               <div>
-                <FieldLabel>How many people?</FieldLabel>
+                <FieldLabel>{t("pl.qPeople")}</FieldLabel>
                 <ChipGroup
                   options={SERVINGS}
                   value={servings}
@@ -813,13 +842,14 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
             {/* Step 2 */}
             <StepCard
               step={2}
-              title="Goal and taste"
-              subtitle="What you want from this meal"
+              title={t("pl.step2")}
+              subtitle={t("pl.step2sub")}
             >
               <div>
-                <FieldLabel>What is your goal?</FieldLabel>
+                <FieldLabel>{t("pl.qGoal")}</FieldLabel>
                 <ChipGroup
                   options={GOALS}
+                  format={(option) => label("opt", option)}
                   value={goal}
                   onChange={setGoal}
                   columns="grid-cols-2 md:grid-cols-4"
@@ -827,9 +857,10 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
               </div>
 
               <div>
-                <FieldLabel>Diet preference</FieldLabel>
+                <FieldLabel>{t("pl.qDiet")}</FieldLabel>
                 <ChipGroup
                   options={DIETS}
+                  format={(option) => label("opt", option)}
                   value={diet}
                   onChange={setDiet}
                 />
@@ -837,19 +868,20 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
 
               <div className="grid gap-7 md:grid-cols-2">
                 <div>
-                  <FieldLabel>Maximum cooking time</FieldLabel>
+                  <FieldLabel>{t("pl.qTime")}</FieldLabel>
                   <ChipGroup
                     options={TIMES}
                     value={time}
                     onChange={setTime}
-                    format={(minutes) => `${minutes} min`}
+                    format={(minutes) => t("unit.min", { n: minutes })}
                   />
                 </div>
 
                 <div>
-                  <FieldLabel>Spice level</FieldLabel>
+                  <FieldLabel>{t("pl.qSpice")}</FieldLabel>
                   <ChipGroup
                     options={SPICE_LEVELS}
+                  format={(option) => label("opt", option)}
                     value={spiceLevel}
                     onChange={setSpiceLevel}
                   />
@@ -860,11 +892,11 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
             {/* Step 3 */}
             <StepCard
               step={3}
-              title="Pantry and allergies"
-              subtitle="Use what you already have, stay safe"
+              title={t("pl.step3")}
+              subtitle={t("pl.step3sub")}
             >
               <div>
-                <FieldLabel>🧺 Ingredients you already have</FieldLabel>
+                <FieldLabel>{t("pl.qPantry")}</FieldLabel>
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {PANTRY_SUGGESTIONS.map((item) => {
@@ -885,7 +917,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                         }`}
                       >
                         {active ? "✓ " : "+ "}
-                        {item}
+                        {label("ing", item)}
                       </button>
                     );
                   })}
@@ -894,17 +926,17 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                 <textarea
                   value={pantry}
                   onChange={(event) => setPantry(event.target.value)}
-                  placeholder="e.g. chicken, eggs, rice, potatoes, onions, tomatoes"
+                  placeholder={t("pl.phPantry")}
                   rows={3}
                   className={`${inputClass} resize-none`}
                 />
                 <p className="mt-2 text-xs text-zinc-400">
-                  LocalPlate AI will try to use these ingredients first.
+                  {t("pl.pantryHint")}
                 </p>
               </div>
 
               <div>
-                <FieldLabel>🚫 Any allergies?</FieldLabel>
+                <FieldLabel>{t("pl.qAllergy")}</FieldLabel>
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {ALLERGY_SUGGESTIONS.map((item) => {
@@ -927,7 +959,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                         }`}
                       >
                         {active ? "✓ " : "+ "}
-                        {item}
+                        {label("opt", item)}
                       </button>
                     );
                   })}
@@ -937,7 +969,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                   type="text"
                   value={allergies}
                   onChange={(event) => setAllergies(event.target.value)}
-                  placeholder="e.g. peanuts, dairy, eggs - or write None"
+                  placeholder={t("pl.phAllergy")}
                   className={inputClass}
                 />
               </div>
@@ -956,14 +988,14 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-lg font-bold">
-                    More details
+                    {t("pl.more")}
                     <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 align-middle text-[11px] font-semibold text-zinc-500">
-                      Optional
+                      {t("pl.optional")}
                     </span>
                   </span>
                   <span className="block text-xs text-zinc-500">
-                    City, dislikes and anything else
-                    {moreFilledCount > 0 ? ` · ${moreFilledCount} filled` : ""}
+                    {t("pl.moreSub")}
+                    {moreFilledCount > 0 ? ` · ${moreFilledCount}` : ""}
                   </span>
                 </span>
                 <span
@@ -979,35 +1011,35 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
               {showMore && (
                 <div className="space-y-7 border-t border-zinc-100 p-5 pt-6 sm:p-7 sm:pt-7">
                   <div>
-                    <FieldLabel>📍 City / local area</FieldLabel>
+                    <FieldLabel>{t("pl.qCity")}</FieldLabel>
                     <input
                       type="text"
                       value={city}
                       onChange={(event) => setCity(event.target.value)}
-                      placeholder="e.g. Islamabad, Lahore, Karachi"
+                      placeholder={t("pl.phCity")}
                       className={inputClass}
                     />
                   </div>
 
                   <div>
-                    <FieldLabel>❌ Foods you dislike</FieldLabel>
+                    <FieldLabel>{t("pl.qDislike")}</FieldLabel>
                     <input
                       type="text"
                       value={dislikes}
                       onChange={(event) => setDislikes(event.target.value)}
-                      placeholder="e.g. bitter gourd, spinach, fish"
+                      placeholder={t("pl.phDislike")}
                       className={inputClass}
                     />
                   </div>
 
                   <div>
-                    <FieldLabel>✨ Anything else?</FieldLabel>
+                    <FieldLabel>{t("pl.qExtra")}</FieldLabel>
                     <textarea
                       value={extraPreferences}
                       onChange={(event) =>
                         setExtraPreferences(event.target.value)
                       }
-                      placeholder="e.g. I prefer homemade food, less oil, simple recipes..."
+                      placeholder={t("pl.phExtra")}
                       rows={3}
                       className={`${inputClass} resize-none`}
                     />
@@ -1026,10 +1058,10 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                 {loading ? (
                   <>
                     <span className="size-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                    Creating your personalized meal...
+                    {t("pl.generating")}
                   </>
                 ) : (
-                  "Generate My Meal Plan ✨"
+                  t("pl.generate")
                 )}
               </button>
             </div>
@@ -1039,13 +1071,13 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
           <aside className="hidden lg:sticky lg:top-24 lg:block">
             <div className="rounded-3xl border border-zinc-100 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
-                <h2 className="font-bold">Your plan</h2>
+                <h2 className="font-bold">{t("pl.yourPlan")}</h2>
                 <button
                   type="button"
                   onClick={resetPreferences}
                   className="text-xs font-bold text-orange-600 hover:text-orange-700"
                 >
-                  Reset
+                  {t("sp.reset")}
                 </button>
               </div>
 
@@ -1074,7 +1106,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                       : "bg-zinc-100 text-zinc-500"
                   }`}
                 >
-                  🚫 {allergies.trim() || "No allergies"}
+                  🚫 {allergies.trim() || t("pl.noAllergies")}
                 </span>
               </div>
             </div>
@@ -1093,7 +1125,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
               <div>
                 <p className="font-bold">Creating your personalized meal...</p>
                 <p className="text-sm text-zinc-500">
-                  Matching your budget, pantry and taste.
+                  {t("pl.matching")}
                 </p>
               </div>
             </div>
@@ -1123,7 +1155,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
               onClick={generatePlan}
               className="mt-5 inline-flex min-h-12 items-center justify-center rounded-full bg-orange-600 px-7 text-sm font-bold text-white transition hover:bg-orange-700 active:scale-95"
             >
-              Try again
+              {t("pl.tryAgain")}
             </button>
           </section>
         )}
@@ -1141,10 +1173,10 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-xl font-bold text-zinc-900 sm:text-2xl">
-                    Your LocalPlate Meal
+                    {t("pl.resultTitle")}
                   </h2>
                   <p className="mt-0.5 text-sm text-zinc-500">
-                    Personalized by LocalPlate AI
+                    {t("pl.personalized")}
                   </p>
                 </div>
               </div>
@@ -1152,13 +1184,13 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
               {/* Preference summary */}
               <div className="mt-5 flex flex-wrap gap-2">
                 {[
-                  ["bg-orange-50 text-orange-700", `🍛 ${foodType}`],
+                  ["bg-orange-50 text-orange-700", `🍛 ${label("opt", foodType)}`],
                   ["bg-green-50 text-green-700", `💰 Rs. ${budget}`],
-                  ["bg-blue-50 text-blue-700", `🍽️ ${mealType}`],
-                  ["bg-purple-50 text-purple-700", `🎯 ${goal}`],
-                  ["bg-yellow-50 text-yellow-700", `⏱️ ${time} min`],
-                  ["bg-pink-50 text-pink-700", `👥 ${servings} people`],
-                  ["bg-zinc-100 text-zinc-700", `🌶️ ${spiceLevel}`],
+                  ["bg-blue-50 text-blue-700", `🍽️ ${label("opt", mealType)}`],
+                  ["bg-purple-50 text-purple-700", `🎯 ${label("opt", goal)}`],
+                  ["bg-yellow-50 text-yellow-700", `⏱️ ${t("unit.min", { n: time })}`],
+                  ["bg-pink-50 text-pink-700", `👥 ${t("pl.people", { n: servings })}`],
+                  ["bg-zinc-100 text-zinc-700", `🌶️ ${label("opt", spiceLevel)}`],
                 ].map(([tone, label]) => (
                   <span
                     key={label}
@@ -1174,7 +1206,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                 <div className="mt-6 rounded-2xl bg-green-50 p-4">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="font-semibold text-green-800">
-                      Estimated cost
+                      {t("cook.estCost")}
                     </span>
                     <span className="font-bold text-green-700">
                       Rs. {estimatedCost.toLocaleString()} / Rs.{" "}
@@ -1193,7 +1225,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                   </div>
                   {estimatedCost > budgetNumber && (
                     <p className="mt-2 text-xs font-medium text-red-600">
-                      This estimate is above your budget. Try Regenerate.
+                      {t("pl.over")}
                     </p>
                   )}
                 </div>
@@ -1210,7 +1242,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                     ),
                     h2: ({ children }) => (
                       <h2 className="mb-3 mt-7 text-xl font-bold text-orange-600 sm:text-2xl">
-                        {children}
+                        {trHeading(children)}
                       </h2>
                     ),
                     h3: ({ children }) => (
@@ -1257,10 +1289,10 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                 className="col-span-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-orange-600 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-orange-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-70 sm:col-span-1 sm:rounded-full"
               >
                 {savingPlan
-                  ? "Saving..."
+                  ? t("cook.saving")
                   : saved
-                    ? "✓ Meal Plan Saved"
-                    : "💾 Save Meal Plan"}
+                    ? t("pl.saved")
+                    : t("pl.save")}
               </button>
 
               <button
@@ -1268,7 +1300,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                 onClick={openShoppingList}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-green-600 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-green-700 active:scale-[0.97] sm:rounded-full"
               >
-                🛒 Shopping List
+                {t("pl.shop")}
               </button>
 
               <button
@@ -1277,7 +1309,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                 disabled={loading}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-zinc-900 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-zinc-800 active:scale-[0.97] disabled:opacity-60 sm:rounded-full"
               >
-                🔄 Regenerate
+                {t("pl.regen")}
               </button>
 
               <button
@@ -1285,7 +1317,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                 onClick={copyMealPlan}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-5 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 active:scale-[0.97] sm:rounded-full"
               >
-                📋 Copy
+                {t("pl.copy")}
               </button>
 
               <button
@@ -1293,7 +1325,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                 onClick={shareOnWhatsApp}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-50 px-5 text-sm font-bold text-green-700 transition hover:bg-green-100 active:scale-[0.97] sm:rounded-full"
               >
-                ↗ WhatsApp
+                {t("pl.wa")}
               </button>
 
               <button
@@ -1301,7 +1333,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
                 onClick={scrollToForm}
                 className="col-span-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-5 text-sm font-bold text-orange-700 transition hover:bg-orange-50 active:scale-[0.97] sm:col-span-1 sm:rounded-full"
               >
-                ✏️ Change preferences
+                {t("pl.change")}
               </button>
             </div>
           </section>
@@ -1313,10 +1345,11 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
         <div className="mx-auto flex max-w-xl items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-bold text-zinc-800">
-              Rs. {budget || "—"} · {mealType} · {servings} people
+              Rs. {budget || "—"} · {label("opt", mealType)} ·{" "}
+              {t("pl.people", { n: servings })}
             </p>
             <p className="truncate text-[11px] text-zinc-500">
-              {goal} · {diet}
+              {label("opt", goal)} · {label("opt", diet)}
             </p>
           </div>
 
@@ -1329,10 +1362,10 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
             {loading ? (
               <>
                 <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                Creating...
+                {t("pl.creating")}
               </>
             ) : (
-              "Generate ✨"
+              t("pl.generateShort")
             )}
           </button>
         </div>

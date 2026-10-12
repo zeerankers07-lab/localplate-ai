@@ -4,8 +4,10 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n/LanguageProvider";
 
 export default function ResetPasswordPage() {
+  const { t } = useI18n();
   const router = useRouter();
 
   const [password, setPassword] = useState("");
@@ -30,7 +32,7 @@ export default function ResetPasswordPage() {
 
       if (!session) {
         setError(
-          "This password reset link is invalid or has expired. Please request a new reset link."
+          t("rp.invalid")
         );
       }
 
@@ -47,17 +49,17 @@ export default function ResetPasswordPage() {
     setMessage("");
 
     if (!password || !confirmPassword) {
-      setError("Please enter and confirm your new password.");
+      setError(t("rp.needBoth"));
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+      setError(t("login.pwShort"));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError(t("login.pwMismatch"));
       return;
     }
 
@@ -75,7 +77,7 @@ export default function ResetPasswordPage() {
       }
 
       setMessage(
-        "Your password has been updated successfully. Redirecting to login..."
+        t("rp.updated")
       );
 
       setPassword("");
@@ -89,7 +91,7 @@ export default function ResetPasswordPage() {
       const errorMessage =
         err instanceof Error
           ? err.message
-          : "Unable to update your password.";
+          : t("rp.updateFail");
 
       setError(errorMessage);
     } finally {
@@ -126,11 +128,11 @@ export default function ResetPasswordPage() {
               </p>
 
               <h1 className="mt-2 text-3xl font-bold tracking-tight">
-                Set new password
+                {t("rp.title")}
               </h1>
 
               <p className="mx-auto mt-2 max-w-[330px] text-sm leading-6 text-zinc-500">
-                Create a new secure password for your LocalPlate AI account.
+                {t("rp.sub")}
               </p>
             </div>
 
@@ -148,7 +150,7 @@ export default function ResetPasswordPage() {
 
             {checkingSession ? (
               <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-4 text-center text-sm text-blue-700">
-                Checking reset link...
+                {t("rp.checking")}
               </div>
             ) : !error || error.includes("invalid") === false ? (
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -157,7 +159,7 @@ export default function ResetPasswordPage() {
                     htmlFor="password"
                     className="mb-1.5 block text-sm font-medium text-zinc-700"
                   >
-                    New password
+                    {t("rp.new")}
                   </label>
 
                   <div className="flex items-center rounded-xl border border-white/90 bg-white/70 px-3 shadow-sm transition focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-100/70">
@@ -170,7 +172,7 @@ export default function ResetPasswordPage() {
                       autoComplete="new-password"
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
-                      placeholder="Create a new password"
+                      placeholder={t("rp.phNew")}
                       className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-zinc-400"
                     />
 
@@ -179,7 +181,7 @@ export default function ResetPasswordPage() {
                       onClick={() => setShowPassword((value) => !value)}
                       className="ml-2 rounded-lg p-1.5 text-zinc-500 transition hover:bg-blue-50 hover:text-blue-600"
                       aria-label={
-                        showPassword ? "Hide password" : "Show password"
+                        showPassword ? t("login.hide") : t("login.show")
                       }
                     >
                       {showPassword ? "🙈" : "👁️"}
@@ -192,7 +194,7 @@ export default function ResetPasswordPage() {
                     htmlFor="confirm-password"
                     className="mb-1.5 block text-sm font-medium text-zinc-700"
                   >
-                    Confirm new password
+                    {t("rp.confirm")}
                   </label>
 
                   <div className="flex items-center rounded-xl border border-white/90 bg-white/70 px-3 shadow-sm transition focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-100/70">
@@ -207,7 +209,7 @@ export default function ResetPasswordPage() {
                       onChange={(event) =>
                         setConfirmPassword(event.target.value)
                       }
-                      placeholder="Repeat your new password"
+                      placeholder={t("rp.phRepeat")}
                       className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-zinc-400"
                     />
 
@@ -219,8 +221,8 @@ export default function ResetPasswordPage() {
                       className="ml-2 rounded-lg p-1.5 text-zinc-500 transition hover:bg-blue-50 hover:text-blue-600"
                       aria-label={
                         showConfirmPassword
-                          ? "Hide password"
-                          : "Show password"
+                          ? t("login.hide")
+                          : t("login.show")
                       }
                     >
                       {showConfirmPassword ? "🙈" : "👁️"}
@@ -233,7 +235,7 @@ export default function ResetPasswordPage() {
                   disabled={loading}
                   className="flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-700 to-blue-500 px-5 text-sm font-semibold text-white shadow-lg shadow-blue-300/40 transition hover:-translate-y-0.5 hover:from-blue-800 hover:to-blue-600 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {loading ? "Updating password..." : "Update password"}
+                  {loading ? t("rp.updating") : t("rp.update")}
                 </button>
               </form>
             ) : null}
@@ -243,7 +245,7 @@ export default function ResetPasswordPage() {
                 href="/login"
                 className="font-semibold text-blue-700 transition hover:text-blue-900"
               >
-                ← Back to login
+                {t("rp.backLogin")}
               </Link>
             </div>
           </div>
