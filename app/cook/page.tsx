@@ -14,20 +14,16 @@ import ReactMarkdown from "react-markdown";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n, type CurrencyCode } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/translations";
+import { MARKETS, priceAccuracyRules, priceRule } from "@/lib/currency";
 
 // =========================
 // Constants
 // =========================
 
 
-const CURRENCIES: Record<
-  CurrencyCode,
-  { symbol: string; country: string; defaultBudget: string }
-> = {
-  PKR: { symbol: "Rs.", country: "Pakistan", defaultBudget: "1000" },
-  INR: { symbol: "₹", country: "India", defaultBudget: "400" },
-  USD: { symbol: "$", country: "the USA", defaultBudget: "20" },
-};
+// Symbol, country, usual budget and pricing rules per currency are shared
+// with the planner pages (see lib/currency.ts).
+const CURRENCIES = MARKETS;
 
 const CUISINES = [
   "Pakistani",
@@ -204,7 +200,7 @@ function splitBlocks(text: string) {
 
 function readCost(body: string) {
   const match = body.match(
-    /Estimated Cost:?\**\s*(?:PKR|INR|USD|Rs\.?|₹|\$)\s*([\d,]+)/i
+    /Estimated Cost:?\**\s*(?:PKR|INR|USD|Rs\.?|₹|\$)\s*([\d,]+(?:\.\d+)?)/i
   );
 
   return match ? match[1] : null;
@@ -488,7 +484,9 @@ function RecipeCard({
   const factor = servings / basePeople;
   const totalCost = cost ? Number(cost.replace(/,/g, "")) : NaN;
   const scaledCost = Number.isFinite(totalCost)
-    ? Math.round(totalCost * factor).toLocaleString("en-US")
+    ? (Math.round(totalCost * factor * 100) / 100).toLocaleString("en-US", {
+        maximumFractionDigits: 2,
+      })
     : cost;
 
   const haveItems = readListLines(
@@ -735,6 +733,7 @@ export default function CookPage() {
   // Results
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [authRequired, setAuthRequired] = useState(false);
   const [result, setResult] = useState("");
   const [resultCurrency, setResultCurrency] = useState<CurrencyCode>("PKR");
   const [resultPeople, setResultPeople] = useState(2);
@@ -1050,6 +1049,7 @@ export default function CookPage() {
     setDraft("");
     setResult("");
     setError("");
+    setAuthRequired(false);
   }
 
   function toggleAllergy(item: string) {
@@ -1074,6 +1074,7 @@ export default function CookPage() {
     if (loading) return;
 
     setError("");
+    setAuthRequired(false);
     setTab("results");
 
     if (ingredients.length === 0) {
@@ -1190,7 +1191,7 @@ IMPORTANT RULES:
 - Do not invent that the user owns ingredients that were not provided.
 - Clearly identify additional ingredients that may be needed.
 - Keep approximate costs realistic for ${currencyInfo.country}, using ${currency}.
-${currency === "PKR" ? "- Never estimate any single ingredient below Rs. 50 (the smallest note is Rs. 10) and round every price to the nearest Rs. 10.\n" : ""}- Respect the selected budget, diet and allergies.
+- ${priceRule(currency)}\n${priceAccuracyRules(currency)}\n- Respect the selected budget, diet and allergies.
 - Do not make medical claims and do not recommend extreme diets.
 - For leftovers, prioritize food-waste reduction.
 - For quick meals, respect the requested maximum time.
@@ -1240,6 +1241,13 @@ Keep the response concise. Do not add any text after the last meal.
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: prompt, mode: "cook" }),
       });
+
+      // Recipes need an account. Show a clear sign-in prompt instead of a
+      // raw error. Ingredients are already kept in localStorage.
+      if (response.status === 401) {
+        setAuthRequired(true);
+        return;
+      }
 
       const data = await response.json();
 
@@ -1411,7 +1419,10 @@ Keep the response concise. Do not add any text after the last meal.
     }, 0);
 
     return total > 0
-      ? `${plannedMeals[0].symbol} ${total.toLocaleString("en-US")}`
+      ? `${plannedMeals[0].symbol} ${(Math.round(total * 100) / 100).toLocaleString(
+          "en-US",
+          { maximumFractionDigits: 2 }
+        )}`
       : null;
   }
 
@@ -1897,6 +1908,20 @@ Keep the response concise. Do not add any text after the last meal.
                 {error}
               </p>
             )}
+          {authRequired && (
+            <div
+              role="alert"
+              className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-900"
+            >
+              <p>{t("cook.loginRequired")}</p>
+              <Link
+                href="/login?next=/cook"
+                className="mt-2 inline-flex h-10 items-center justify-center rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white transition hover:bg-blue-800"
+              >
+                {t("cook.loginBtn")}
+              </Link>
+            </div>
+          )}
           </form>
 
           {/* Output */}

@@ -1,10 +1,36 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
+import {
+  DEFAULT_CURRENCY,
+  MARKETS,
+  PRICE_AMOUNT,
+  PRICE_PREFIX,
+  detectCurrencyFromText,
+  formatAmount,
+  priceAccuracyRules,
+  priceRule,
+  toNumber,
+} from "@/lib/currency";
+
+type ReuseWeeklyPreferences = {
+  budget?: string | number;
+  currency?: string;
+  foodType?: string;
+  diet?: string;
+  goal?: string;
+  servings?: string | number;
+  city?: string;
+  pantry?: string;
+  preferences?: string;
+  smartSubstitutions?: boolean;
+  useLeftovers?: boolean;
+  leftovers?: string;
+};
 
 type WeeklySavedPlan = {
   id: number;
@@ -81,17 +107,22 @@ const EMPTY_DAY = (day: string): DayPlan => ({
 });
 
 export default function WeeklyPlanPage() {
-  const { t, label, lang } = useI18n();
+  const { t, label, lang, currency, currencyReady } = useI18n();
+  const market = MARKETS[currency];
   const router = useRouter();
 
   // =========================
   // Preferences
   // =========================
 
-  const [budget, setBudget] = useState("7000");
+  const [budget, setBudget] = useState(
+    MARKETS[DEFAULT_CURRENCY].weeklyDefaultBudget
+  );
   const [diet, setDiet] = useState("Normal");
   const [goal, setGoal] = useState("Healthy Eating");
-  const [foodType, setFoodType] = useState("Pakistani");
+  const [foodType, setFoodType] = useState(
+    MARKETS[DEFAULT_CURRENCY].defaultFoodType
+  );
   const [servings, setServings] = useState("2");
   const [city, setCity] = useState("");
   const [pantry, setPantry] = useState("");
@@ -180,76 +211,68 @@ export default function WeeklyPlanPage() {
     if (savedPlan) {
       setWeeklyPlan(savedPlan);
     }
-
-    const reusePreferences = localStorage.getItem(
-      "localplate_reuse_weekly_preferences"
-    );
-
-    if (!reusePreferences) return;
-
-    try {
-      const preferencesData = JSON.parse(reusePreferences);
-
-      if (preferencesData.budget) {
-        setBudget(String(preferencesData.budget));
-      }
-
-      if (preferencesData.foodType) {
-        setFoodType(preferencesData.foodType);
-      }
-
-      if (preferencesData.diet) {
-        setDiet(preferencesData.diet);
-      }
-
-      if (preferencesData.goal) {
-        setGoal(preferencesData.goal);
-      }
-
-      if (preferencesData.servings) {
-        setServings(String(preferencesData.servings));
-      }
-
-      if (preferencesData.city !== undefined) {
-        setCity(preferencesData.city);
-      }
-
-      if (preferencesData.pantry !== undefined) {
-        setPantry(preferencesData.pantry);
-      }
-
-      if (preferencesData.preferences !== undefined) {
-        setPreferences(preferencesData.preferences);
-      }
-
-      if (preferencesData.smartSubstitutions !== undefined) {
-        setSmartSubstitutions(
-          Boolean(preferencesData.smartSubstitutions)
-        );
-      }
-
-      if (preferencesData.useLeftovers !== undefined) {
-        setUseLeftovers(Boolean(preferencesData.useLeftovers));
-      }
-
-      if (preferencesData.leftovers !== undefined) {
-        setLeftovers(preferencesData.leftovers);
-      }
-
-      localStorage.removeItem(
-        "localplate_reuse_weekly_preferences"
-      );
-    } catch (error) {
-      console.error(
-        "Failed to load weekly reuse preferences:",
-        error
-      );
-
-      localStorage.removeItem(
-        "localplate_reuse_weekly_preferences"
-      );
-    }
   }, []);
+
+  // Reuse preferences. The budget and food type always follow the selected
+  // currency: saved ones are used only when they were chosen in the same one.
+  const reuseLoaded = useRef(false);
+
+  useEffect(() => {
+    if (!currencyReady) return;
+
+    const applyPreferences = () => {
+      const activeMarket = MARKETS[currency];
+      let data: ReuseWeeklyPreferences | null = null;
+
+      if (!reuseLoaded.current) {
+        reuseLoaded.current = true;
+
+        try {
+          const saved = localStorage.getItem(
+            "localplate_reuse_weekly_preferences"
+          );
+
+          if (saved) {
+            data = JSON.parse(saved) as ReuseWeeklyPreferences;
+            localStorage.removeItem("localplate_reuse_weekly_preferences");
+          }
+        } catch (error) {
+          console.error("Failed to load weekly reuse preferences:", error);
+          localStorage.removeItem("localplate_reuse_weekly_preferences");
+        }
+      }
+
+      const sameCurrency = !data?.currency || data.currency === currency;
+
+      setBudget(
+        data?.budget && sameCurrency
+          ? String(data.budget)
+          : activeMarket.weeklyDefaultBudget
+      );
+      setFoodType(data?.foodType || activeMarket.defaultFoodType);
+
+      if (!data) return;
+
+      if (data.diet) setDiet(data.diet);
+      if (data.goal) setGoal(data.goal);
+      if (data.servings) setServings(String(data.servings));
+      if (data.city !== undefined) setCity(data.city);
+      if (data.pantry !== undefined) setPantry(data.pantry);
+      if (data.preferences !== undefined) setPreferences(data.preferences);
+      if (data.smartSubstitutions !== undefined) {
+        setSmartSubstitutions(Boolean(data.smartSubstitutions));
+      }
+      if (data.useLeftovers !== undefined) {
+        setUseLeftovers(Boolean(data.useLeftovers));
+      }
+      if (data.leftovers !== undefined) setLeftovers(data.leftovers);
+    };
+
+    // Deferred so the state updates are not synchronous in the effect body.
+    const timer = window.setTimeout(applyPreferences, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [currencyReady, currency]);
 
   // =========================
   // Prepare Shopping List
@@ -317,7 +340,7 @@ export default function WeeklyPlanPage() {
     const cleaned = value.replace(/,/g, "");
 
     const match = cleaned.match(
-      /(?:Rs\.?|PKR)?\s*(\d+(?:\.\d+)?)/i
+      /(?:Rs\.?|PKR|INR|USD|₹|₨|\$)?\s*(\d+(?:\.\d+)?)/i
     );
 
     if (!match) return null;
@@ -392,11 +415,19 @@ export default function WeeklyPlanPage() {
   const estimatedWeeklyCost = useMemo(() => {
     if (!weeklyPlan) return null;
 
+    // The AI may write PKR, INR, USD, Rs., ₹ or $ before the amount, and
+    // amounts may have decimals (USD).
+    const priceAfter = (label: string, flags = "i") =>
+      new RegExp(
+        String.raw`${label}\s*:\s*\**\s*(?:${PRICE_PREFIX})?\s*${PRICE_AMOUNT}`,
+        flags
+      );
+
     const totalPatterns = [
-      /Estimated\s+total\s*:\s*(?:Rs\.?|PKR)?\s*([\d,]+)/i,
-      /Total\s*:\s*(?:Rs\.?|PKR)?\s*([\d,]+)/i,
-      /Estimated\s+total\s+weekly\s+cost\s*:\s*(?:Rs\.?|PKR)?\s*([\d,]+)/i,
-      /Weekly\s+total\s*:\s*(?:Rs\.?|PKR)?\s*([\d,]+)/i,
+      priceAfter(String.raw`Estimated\s+total`),
+      priceAfter(String.raw`Total`),
+      priceAfter(String.raw`Estimated\s+total\s+weekly\s+cost`),
+      priceAfter(String.raw`Weekly\s+total`),
     ];
 
     for (const pattern of totalPatterns) {
@@ -412,9 +443,7 @@ export default function WeeklyPlanPage() {
     }
 
     const costs = Array.from(
-      weeklyPlan.matchAll(
-        /Estimated\s+Cost\s*:\s*(?:Rs\.?|PKR)?\s*([\d,]+)/gi
-      )
+      weeklyPlan.matchAll(priceAfter(String.raw`Estimated\s+Cost`, "gi"))
     )
       .map((match) => parseCost(match[1]))
       .filter((value): value is number => value !== null);
@@ -441,21 +470,30 @@ export default function WeeklyPlanPage() {
       : 0;
   }, [budget]);
 
+  // The currency the plan was written in. It can differ from the selected
+  // one (a plan saved earlier, or the person switched currency afterwards).
+  const planCurrency = useMemo(
+    () => detectCurrencyFromText(weeklyPlan) ?? currency,
+    [weeklyPlan, currency]
+  );
+
+  const sameCurrency = planCurrency === currency;
+
   const remainingBudget = useMemo(() => {
-    if (estimatedWeeklyCost === null) return null;
+    if (estimatedWeeklyCost === null || !sameCurrency) return null;
 
     return budgetNumber - estimatedWeeklyCost;
-  }, [budgetNumber, estimatedWeeklyCost]);
+  }, [budgetNumber, estimatedWeeklyCost, sameCurrency]);
 
   const budgetPercentage = useMemo(() => {
-    if (!budgetNumber || estimatedWeeklyCost === null) {
+    if (!budgetNumber || estimatedWeeklyCost === null || !sameCurrency) {
       return 0;
     }
 
     return Math.round(
       (estimatedWeeklyCost / budgetNumber) * 100
     );
-  }, [budgetNumber, estimatedWeeklyCost]);
+  }, [budgetNumber, estimatedWeeklyCost, sameCurrency]);
 
   const isOverBudget =
     remainingBudget !== null && remainingBudget < 0;
@@ -1103,7 +1141,7 @@ export default function WeeklyPlanPage() {
 
     try {
       const prompt = `
-You are LocalPlate AI, an expert Pakistani food and weekly meal-planning assistant.
+You are LocalPlate AI, an expert ${market.foodAdj}food and weekly meal-planning assistant for households in ${market.country}.
 
 Create a complete, practical and personalized 7-day meal plan.
 
@@ -1115,7 +1153,7 @@ Food type:
 ${foodType}
 
 Weekly budget:
-PKR ${budget}
+${currency} ${budget}
 
 Diet:
 ${diet}
@@ -1160,17 +1198,19 @@ Monday, Tuesday, Wednesday, Thursday, Friday, Saturday and Sunday.
 
 3. Give one meal per slot.
 
-4. Keep the complete estimated weekly cost within PKR ${budget}.
+4. Keep the complete estimated weekly cost within ${currency} ${budget}.
 
-5. Use realistic approximate Pakistani Rupee prices. Never estimate any single ingredient below Rs. 50 (the smallest note is Rs. 10) and round every price to the nearest Rs. 10.
+5. ${priceRule(currency)} Write every price in ${currency} only. Never use another currency.
+
+${priceAccuracyRules(currency)}
 
 6. Never claim prices are exact live store prices.
 
 7. If a city is provided, use it only as approximate local pricing context.
 
-8. Prefer Pakistani and South Asian meals when suitable.
+8. Prefer ${market.foodFocus} meals when suitable, unless the food type selected above says otherwise.
 
-9. Prefer ingredients commonly available in Pakistan.
+9. Prefer ingredients commonly available in ${market.country}.
 
 10. Reuse ingredients intelligently across multiple meals to reduce:
 - cost
@@ -1192,7 +1232,7 @@ Monday, Tuesday, Wednesday, Thursday, Friday, Saturday and Sunday.
 
 15. Do not recommend extreme diets.
 
-16. Keep meals practical for a normal Pakistani household.
+16. Keep meals practical for a normal ${market.demonym} household.
 
 17. Avoid unnecessary expensive ingredients.
 
@@ -1201,7 +1241,7 @@ Monday, Tuesday, Wednesday, Thursday, Friday, Saturday and Sunday.
 19. Keep variety across the week.
 
 20. Do not repeat the exact same meal unnecessarily.
-21. Write meal names, ingredient names, quick steps, substitutions and leftover ideas in ${lang === "ur" ? "Urdu (اردو), in Urdu script, not Roman Urdu" : lang === "hi" ? "Hindi (हिन्दी), in Devanagari script" : "English"}. Keep these exactly in English: the day names (Monday to Sunday), Breakfast, Lunch, Dinner, the labels "Meal:", "Estimated Cost:", "Prep Time:", "Quick Steps:", "🔄 Smart Substitution:", every "#" section heading, and the words PKR and minutes. Use Latin digits (0-9) and write units such as g, kg, ml in English letters.
+21. Write meal names, ingredient names, quick steps, substitutions and leftover ideas in ${lang === "ur" ? "Urdu (اردو), in Urdu script, not Roman Urdu" : lang === "hi" ? "Hindi (हिन्दी), in Devanagari script" : "English"}. Keep these exactly in English: the day names (Monday to Sunday), Breakfast, Lunch, Dinner, the labels "Meal:", "Estimated Cost:", "Prep Time:", "Quick Steps:", "🔄 Smart Substitution:", every "#" section heading, and the words ${currency} and minutes. Use Latin digits (0-9) and write units (${market.units}) in English letters.
 
 =========================
 SMART SUBSTITUTIONS
@@ -1217,12 +1257,10 @@ For every meal where a useful substitution exists, include:
 🔄 Smart Substitution:
 If [ingredient] is unavailable or expensive, use [substitute].
 
-Prefer practical Pakistani alternatives.
+Prefer practical ${market.demonym} alternatives.
 
 Examples:
-- chicken → daal, chickpeas, paneer or potatoes when suitable
-- fresh coriander → dried coriander when practical
-- tomato → another suitable acidic ingredient when appropriate
+${market.substitutionExamples.map((example) => `- ${example}`).join("\n")}
 - expensive vegetables → commonly available seasonal vegetables
 
 Never suggest substitutions that violate:
@@ -1265,10 +1303,7 @@ Create a dedicated section exactly like this:
 Give 3 to 6 useful ideas when enough information exists. If the user supplied specific leftovers, prioritize those first. Otherwise suggest realistic leftovers created by the weekly plan.
 
 Examples:
-- leftover chicken curry → chicken wrap — easy next-day lunch
-- leftover daal → daal paratha — uses the same cooked daal
-- leftover rice → vegetable fried rice — quick second meal
-- leftover chana → chana chaat — fresh, low-effort reuse
+${market.leftoverExamples.map((example) => `- ${example}`).join("\n")}
 
 Do not force leftover reuse when it would be impractical or unsafe.
 `
@@ -1287,7 +1322,7 @@ For EVERY breakfast, lunch and dinner provide:
 
 Meal: [meal name]
 
-Estimated Cost: PKR [amount]
+Estimated Cost: ${currency} [amount]
 
 Prep Time: [number] minutes
 
@@ -1312,7 +1347,7 @@ Every shopping item MUST:
 - start with "- "
 - contain ingredient name
 - contain approximate quantity
-- contain estimated cost
+- contain estimated cost only when you know a realistic price for that quantity (otherwise write the item with no price)
 
 Do not use a table.
 
@@ -1330,11 +1365,11 @@ After the shopping list provide:
 
 # 💰 Weekly Cost Summary
 
-Estimated total: PKR XXXX
+Estimated total: ${currency} XXXX
 
-Remaining budget: PKR XXXX
+Remaining budget: ${currency} XXXX
 
-The estimated total should remain within PKR ${budget} whenever realistically possible.
+The estimated total should remain within ${currency} ${budget} whenever realistically possible.
 
 =========================
 EXACT RESPONSE STRUCTURE
@@ -1348,7 +1383,7 @@ EXACT RESPONSE STRUCTURE
 
 Meal: [meal name]
 
-Estimated Cost: PKR [amount]
+Estimated Cost: ${currency} [amount]
 
 Prep Time: [number] minutes
 
@@ -1361,7 +1396,7 @@ Quick Steps:
 
 Meal: [meal name]
 
-Estimated Cost: PKR [amount]
+Estimated Cost: ${currency} [amount]
 
 Prep Time: [number] minutes
 
@@ -1374,7 +1409,7 @@ Quick Steps:
 
 Meal: [meal name]
 
-Estimated Cost: PKR [amount]
+Estimated Cost: ${currency} [amount]
 
 Prep Time: [number] minutes
 
@@ -1402,9 +1437,9 @@ Each day MUST contain Breakfast, Lunch and Dinner.
 
 # 💰 Weekly Cost Summary
 
-Estimated total: PKR XXXX
+Estimated total: ${currency} XXXX
 
-Remaining budget: PKR XXXX
+Remaining budget: ${currency} XXXX
 
 IMPORTANT:
 
@@ -1428,6 +1463,7 @@ Do not return an explanation before the weekly plan.
 
         body: JSON.stringify({
           message: prompt,
+          currency,
         }),
       });
 
@@ -1544,6 +1580,7 @@ Do not return an explanation before the weekly plan.
       "localplate_reuse_weekly_preferences",
       JSON.stringify({
         budget,
+        currency,
         foodType,
         diet,
         goal,
@@ -1596,7 +1633,7 @@ Do not return an explanation before the weekly plan.
               </p>
 
               <p className="text-sm font-bold text-zinc-900">
-                Rs. {meal.cost.toLocaleString()}
+                {formatAmount(meal.cost, planCurrency)}
               </p>
             </div>
           )}
@@ -1659,14 +1696,14 @@ Do not return an explanation before the weekly plan.
   // =========================
 
   return (
-    <main className="min-h-screen bg-[#fffaf5] px-5 py-10 text-zinc-900 md:px-10">
+    <main className="min-h-screen bg-zinc-50 px-4 py-6 text-zinc-900 sm:px-6 sm:py-8">
       <style jsx global>{`
         @keyframes localplateFadeUp {
           from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-4xl">
         {/* Header */}
 
         <section>
@@ -1697,22 +1734,8 @@ Do not return an explanation before the weekly plan.
 
         {/* Form */}
 
-        <section className="mt-12 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-100 md:p-8">
-          <div className="mb-7">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-600">
-              {t("wk.prefs")}
-            </p>
-
-            <h2 className="mt-1 text-2xl font-bold">
-              {t("wk.build")}
-            </h2>
-
-            <p className="mt-2 text-sm leading-6 text-zinc-500">
-              {t("wk.buildText")}
-            </p>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
+        <section className="mt-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-100 sm:p-6">
+          <div className="grid gap-4 md:grid-cols-2">
             {/* Budget */}
 
             <div>
@@ -1722,7 +1745,7 @@ Do not return an explanation before the weekly plan.
 
               <div className="relative mt-2">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-zinc-400">
-                  PKR
+                  {currency}
                 </span>
 
                 <input
@@ -1733,7 +1756,7 @@ Do not return an explanation before the weekly plan.
                     setBudget(e.target.value)
                   }
                   className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-3 pl-14 pr-4 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                  placeholder="7000"
+                  placeholder={market.weeklyDefaultBudget}
                 />
               </div>
             </div>
@@ -1752,10 +1775,14 @@ Do not return an explanation before the weekly plan.
                 }
                 className="mt-2 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
               >
-                <option value="Pakistani">{label("opt", "Pakistani")}</option>
-                <option value="South Asian">{label("opt", "South Asian")}</option>
-                <option value="Mixed">{label("opt", "Mixed")}</option>
-                <option value="Vegetarian">{label("opt", "Vegetarian")}</option>
+                {(market.weeklyFoodTypes.includes(foodType)
+                  ? market.weeklyFoodTypes
+                  : [foodType, ...market.weeklyFoodTypes]
+                ).map((option) => (
+                  <option key={option} value={option}>
+                    {label("opt", option)}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -1882,6 +1909,14 @@ Do not return an explanation before the weekly plan.
               </p>
             </div>
 
+            {/* More options (collapsed) */}
+
+            <details className="group md:col-span-2 rounded-xl border border-zinc-200 bg-zinc-50/60 open:bg-white">
+              <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold text-zinc-700 marker:hidden">
+                {t("ui.more")}
+                <span className="text-zinc-400 transition group-open:rotate-180">▾</span>
+              </summary>
+              <div className="space-y-4 px-4 pb-4">
             {/* Smart Kitchen */}
 
             <div className="md:col-span-2">
@@ -1989,48 +2024,8 @@ Do not return an explanation before the weekly plan.
                 className="mt-2 w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 outline-none transition placeholder:text-zinc-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
               />
             </div>
-          </div>
-
-          {/* Preference Preview */}
-
-          <div className="mt-7 flex flex-wrap gap-2">
-            <span className="rounded-full bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700">
-              🍛 {foodType}
-            </span>
-
-            <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
-              🥗 {diet}
-            </span>
-
-            <span className="rounded-full bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700">
-              🎯 {goal}
-            </span>
-
-            <span className="rounded-full bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700">
-              👥 {servings} people
-            </span>
-
-            <span className="rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-700">
-              💰 Rs. {budget}
-            </span>
-
-            {city.trim() && (
-              <span className="rounded-full bg-yellow-50 px-3 py-1.5 text-xs font-semibold text-yellow-700">
-                📍 {city}
-              </span>
-            )}
-
-            {smartSubstitutions && (
-              <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700">
-                {t("wk.tagSwaps")}
-              </span>
-            )}
-
-            {useLeftovers && (
-              <span className="rounded-full bg-lime-50 px-3 py-1.5 text-xs font-semibold text-lime-700">
-                {t("wk.tagReuse")}
-              </span>
-            )}
+              </div>
+            </details>
           </div>
 
           {/* Generate */}
@@ -2041,18 +2036,15 @@ Do not return an explanation before the weekly plan.
             disabled={
               loading || !budget.trim()
             }
-            className="mt-8 w-full rounded-full bg-orange-600 px-6 py-4 font-semibold text-white shadow-lg shadow-orange-200 transition hover:bg-orange-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-6 h-12 w-full rounded-xl bg-orange-600 px-6 font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading
-              ? "⏳ Creating Your Smart Weekly Plan..."
+              ? "Creating plan…"
               : weeklyPlan
-                ? "✨ Generate New Weekly Plan"
-                : "✨ Generate 7-Day Meal Plan"}
+                ? "Generate new plan"
+                : "Generate 7-day plan"}
           </button>
 
-          <p className="mt-3 text-center text-xs text-zinc-400">
-            {t("wk.tagline")}
-          </p>
         </section>
 
         {/* Result */}
@@ -2062,297 +2054,48 @@ Do not return an explanation before the weekly plan.
             id="weekly-result"
             className="mt-10"
           >
-            {/* Dashboard */}
+            {/* Summary */}
 
-            <div className="rounded-3xl bg-zinc-950 p-6 text-white shadow-xl md:p-8">
-              <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-400">
-                    {t("wk.yourWeek")}
-                  </p>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-zinc-100 sm:px-5">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {t("wk.weeklyPlanTitle")}
+                </h2>
 
-                  <h2 className="mt-2 text-3xl font-bold md:text-4xl">
-                    {t("wk.weeklyPlanTitle")}
-                  </h2>
-
-                  <p className="mt-2 text-sm leading-6 text-zinc-400">
-                    {t("wk.builtAround")}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-white/10 px-5 py-4 backdrop-blur">
-                  <p className="text-xs uppercase tracking-wide text-zinc-400">
-                    {t("wk.horizon")}
-                  </p>
-
-                  <p className="mt-1 text-xl font-bold">
-                    {t("wk.days7")}
-                  </p>
-                </div>
+                <p className="text-sm text-zinc-500">
+                  {estimatedWeeklyCost !== null
+                    ? formatAmount(estimatedWeeklyCost, planCurrency)
+                    : "…"}
+                  {sameCurrency &&
+                    ` / ${formatAmount(budgetNumber, currency)}`}
+                  {" · "}
+                  {servings} people
+                </p>
               </div>
 
-              {/* Stats */}
-
-              <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-2xl bg-white/10 p-4">
-                  <p className="text-xs text-zinc-400">
-                    {t("wk.budget")}
-                  </p>
-
-                  <p className="mt-1 text-xl font-bold">
-                    Rs.{" "}
-                    {budgetNumber.toLocaleString()}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-white/10 p-4">
-                  <p className="text-xs text-zinc-400">
-                    {t("cook.estCost")}
-                  </p>
-
-                  <p className="mt-1 text-xl font-bold">
-                    {estimatedWeeklyCost !== null
-                      ? `Rs. ${estimatedWeeklyCost.toLocaleString()}`
-                      : "Calculating..."}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-white/10 p-4">
-                  <p className="text-xs text-zinc-400">
-                    {t("sh.remaining")}
-                  </p>
-
-                  <p
-                    className={`mt-1 text-xl font-bold ${
-                      isOverBudget
-                        ? "text-red-400"
-                        : "text-green-400"
-                    }`}
-                  >
-                    {remainingBudget !== null
-                      ? `Rs. ${Math.abs(
-                          remainingBudget
-                        ).toLocaleString()}`
-                      : "—"}
-                  </p>
-
-                  {isOverBudget && (
-                    <p className="mt-1 text-xs text-red-300">
-                      {t("wk.over")}
-                    </p>
-                  )}
-                </div>
-
-                <div className="rounded-2xl bg-white/10 p-4">
-                  <p className="text-xs text-zinc-400">
-                    {t("card.servings")}
-                  </p>
-
-                  <p className="mt-1 text-xl font-bold">
-                    {servings} people
-                  </p>
-                </div>
-              </div>
-
-              {/* Budget Progress */}
-
-              <div className="mt-7 rounded-2xl bg-white/10 p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-semibold">
-                      {t("wk.usage")}
-                    </p>
-
-                    <p className="mt-1 text-xs text-zinc-400">
-                      {estimatedWeeklyCost !== null
-                        ? `${budgetPercentage}% of your weekly budget`
-                        : "Based on AI estimated costs"}
-                    </p>
-                  </div>
-
-                  <p
-                    className={`text-sm font-bold ${
-                      isOverBudget
-                        ? "text-red-400"
-                        : "text-orange-400"
-                    }`}
-                  >
-                    {estimatedWeeklyCost !== null
-                      ? `${budgetPercentage}%`
-                      : "—"}
-                  </p>
-                </div>
-
-                <div className="mt-3 h-3 overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className={`h-full rounded-full transition-all duration-700 ${
-                      isOverBudget
-                        ? "bg-red-500"
-                        : "bg-orange-500"
-                    }`}
-                    style={{
-                      width: `${Math.min(
-                        budgetPercentage,
-                        100
-                      )}%`,
-                    }}
-                  />
-                </div>
-
-                {isOverBudget && (
-                  <div className="mt-3 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
-                    {t("wk.exceed")}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Personalization */}
-
-            <div className="mt-5 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-100 md:p-7">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-xl">
-                  🧠
-                </div>
-
-                <div>
-                  <h3 className="font-bold text-zinc-900">
-                    {t("wk.personalized")}
-                  </h3>
-
-                  <p className="mt-1 text-sm text-zinc-500">
-                    {t("wk.basedOn")}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-2">
-                <span className="rounded-full bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700">
-                  🍛 {foodType}
+              {isOverBudget && (
+                <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                  {t("wk.over")}
                 </span>
-
-                <span className="rounded-full bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700">
-                  🥗 {diet}
-                </span>
-
-                <span className="rounded-full bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700">
-                  🎯 {goal}
-                </span>
-
-                <span className="rounded-full bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
-                  👥 {servings} people
-                </span>
-
-                {city.trim() && (
-                  <span className="rounded-full bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-700">
-                    📍 {city}
-                  </span>
-                )}
-
-                {pantry.trim() && (
-                  <span className="rounded-full bg-pink-50 px-4 py-2 text-sm font-medium text-pink-700">
-                    {t("wk.pantryAware")}
-                  </span>
-                )}
-
-                {smartSubstitutions && (
-                  <span className="rounded-full bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700">
-                    {t("wk.subs")}
-                  </span>
-                )}
-
-                {useLeftovers && (
-                  <span className="rounded-full bg-lime-50 px-4 py-2 text-sm font-medium text-lime-700">
-                    {t("wk.tagReuse")}
-                  </span>
-                )}
-              </div>
-
-              {/* Smart info */}
-
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                {pantry.trim() && (
-                  <div className="rounded-2xl border border-green-100 bg-green-50 p-4 text-sm text-green-800">
-                    <span className="font-bold">
-                      {t("wk.pantryIncluded")}
-                    </span>
-
-                    <p className="mt-1 text-green-700">
-                      {t("wk.pantryAsked")}
-                    </p>
-                  </div>
-                )}
-
-                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
-                  <span className="font-bold">
-                    {t("wk.budgetAware")}
-                  </span>
-
-                  <p className="mt-1 text-blue-700">
-                    {t("wk.budgetAwareText")}
-                  </p>
-                </div>
-
-                {city.trim() && (
-                  <div className="rounded-2xl border border-yellow-100 bg-yellow-50 p-4 text-sm text-yellow-800">
-                    <span className="font-bold">
-                      {t("wk.localPrice")}
-                    </span>
-
-                    <p className="mt-1 text-yellow-700">
-                      {city} is being used as approximate
-                      pricing context. Prices are not live
-                      store prices.
-                    </p>
-                  </div>
-                )}
-
-                {useLeftovers && leftovers.trim() && (
-                  <div className="rounded-2xl border border-lime-100 bg-lime-50 p-4 text-sm text-lime-800">
-                    <span className="font-bold">
-                      {t("wk.leftoversIncl")}
-                    </span>
-
-                    <p className="mt-1 text-lime-700">
-                      AI will try to repurpose:
-                      {" "}
-                      {leftovers}
-                    </p>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
 
             {/* Day Controls */}
 
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="text-xl font-bold">
-                  {t("wk.schedule")}
-                </h3>
-
-                <p className="mt-1 text-sm text-zinc-500">
-                  {t("wk.openDay")}
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={expandAllDays}
-                  className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700"
-                >
-                  {t("sh.expand")}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={collapseAllDays}
-                  className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700"
-                >
-                  {t("sh.collapse")}
-                </button>
-              </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={
+                  Object.values(expandedDays).every(Boolean)
+                    ? collapseAllDays
+                    : expandAllDays
+                }
+                className="text-xs font-semibold text-orange-700 hover:text-orange-800"
+              >
+                {Object.values(expandedDays).every(Boolean)
+                  ? t("sh.collapse")
+                  : t("sh.expand")}
+              </button>
             </div>
 
             {/* Day Cards */}
@@ -2402,8 +2145,7 @@ Do not return an explanation before the weekly plan.
                       <div className="flex items-center gap-3">
                         {dayCost !== null && (
                           <span className="hidden rounded-full bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700 sm:inline-flex">
-                            Rs.{" "}
-                            {dayCost.toLocaleString()}
+                            {formatAmount(dayCost, planCurrency)}
                           </span>
                         )}
 
@@ -2449,125 +2191,14 @@ Do not return an explanation before the weekly plan.
               })}
             </div>
 
-            {/* Allergy / Preference Warning */}
+            {/* Extras (collapsed) */}
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              {isOverBudget ? (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
-                  <p className="font-bold text-red-800">
-                    {t("wk.budgetWarn")}
-                  </p>
-
-                  <p className="mt-1 text-sm leading-6 text-red-700">
-                    {t("wk.budgetWarnText")}
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-green-200 bg-green-50 p-4">
-                  <p className="font-bold text-green-800">
-                    {t("wk.budgetOk")}
-                  </p>
-
-                  <p className="mt-1 text-sm leading-6 text-green-700">
-                    {t("wk.budgetOkText")}
-                  </p>
-                </div>
-              )}
-
-              <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
-                <p className="font-bold text-orange-800">
-                  {t("wk.tip")}
-                </p>
-
-                <p className="mt-1 text-sm leading-6 text-orange-700">
-                  {t("wk.tipText")}
-                </p>
-              </div>
-            </div>
-
-            {/* Structured Plan Overview */}
-
-            <section className="mt-8" aria-labelledby="plan-overview-heading">
-              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-600">
-                    {t("wk.overview")}
-                  </p>
-                  <h3 id="plan-overview-heading" className="mt-1 text-2xl font-bold text-zinc-900">
-                    {t("wk.glance")}
-                  </h3>
-                  <p className="mt-1 text-sm text-zinc-500">
-                    {t("wk.glanceText")}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700">
-                    {parsedDays.filter((day) =>
-                      day.breakfast.name || day.lunch.name || day.dinner.name
-                    ).length}/7 days
-                  </span>
-                  {estimatedWeeklyCost !== null && (
-                    <span className="rounded-full bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700">
-                      Rs. {estimatedWeeklyCost.toLocaleString()}
-                    </span>
-                  )}
-                  <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
-                    {servings} servings
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <article className="group rounded-3xl border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
-                  <div className="flex items-center justify-between">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl shadow-sm">
-                      🍽️
-                    </div>
-                    <span className="text-xs font-bold text-orange-600">{t("wk.days7u")}</span>
-                  </div>
-                  <h4 className="mt-4 font-bold text-zinc-900">Complete meal schedule</h4>
-                  <p className="mt-1 text-sm leading-6 text-zinc-500">
-                    {t("wk.organized")}
-                  </p>
-                </article>
-
-                <article className="group rounded-3xl border border-green-100 bg-gradient-to-br from-green-50 to-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
-                  <div className="flex items-center justify-between">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl shadow-sm">
-                      💰
-                    </div>
-                    <span className="text-xs font-bold text-green-600">
-                      {isOverBudget ? "OVER" : "ON TRACK"}
-                    </span>
-                  </div>
-                  <h4 className="mt-4 font-bold text-zinc-900">Budget snapshot</h4>
-                  <p className="mt-1 text-sm leading-6 text-zinc-500">
-                    {estimatedWeeklyCost !== null
-                      ? `Estimated Rs. ${estimatedWeeklyCost.toLocaleString()} from your Rs. ${budgetNumber.toLocaleString()} target.`
-                      : "AI cost estimate is included in the plan."}
-                  </p>
-                </article>
-
-                <article className="group rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
-                  <div className="flex items-center justify-between">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl shadow-sm">
-                      📍
-                    </div>
-                    <span className="text-xs font-bold text-blue-600">
-                      {city.trim() ? city : "LOCAL"}
-                    </span>
-                  </div>
-                  <h4 className="mt-4 font-bold text-zinc-900">Planning context</h4>
-                  <p className="mt-1 text-sm leading-6 text-zinc-500">
-                    {city.trim()
-                      ? `Meals use ${city} as approximate local pricing context.`
-                      : "Meals are planned around commonly available Pakistani ingredients."}
-                  </p>
-                </article>
-              </div>
-            </section>
-
+            <details className="group mt-6 rounded-2xl bg-white shadow-sm ring-1 ring-zinc-100">
+              <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold text-zinc-700 marker:hidden sm:px-5">
+                {t("ui.extras")}
+                <span className="text-zinc-400 transition group-open:rotate-180">▾</span>
+              </summary>
+              <div className="px-4 pb-5 sm:px-5">
             {/* Prep Time + Quick Steps Overview */}
 
             <section className="mt-8" aria-labelledby="prep-overview-heading">
@@ -2922,174 +2553,79 @@ Do not return an explanation before the weekly plan.
               </div>
             </details>
 
-            {/* Saved Plans Integration */}
-
-            <div className="mt-6 overflow-hidden rounded-3xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-orange-50 p-5 shadow-sm md:p-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-600">
-                    {t("wk.collection")}
-                  </p>
-                  <h3 className="mt-1 text-xl font-bold text-zinc-900">
-                    {savedPlanCount > 0
-                      ? `${savedPlanCount} saved plan${savedPlanCount === 1 ? "" : "s"} ready to reuse`
-                      : "Build your saved meal collection"}
-                  </h3>
-                  <p className="mt-1 text-sm text-zinc-500">
-                    {t("wk.collectionText")}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={openSavedPlans}
-                  className="shrink-0 rounded-full bg-zinc-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800"
-                >
-                  {t("wk.openSaved")}
-                </button>
               </div>
-            </div>
+            </details>
 
             {/* Actions */}
 
-            <div className="mt-6 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-100 md:p-6">
-              <div className="mb-4">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-600">
-                  {t("wk.quick")}
-                </p>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={saveWeeklyPlan}
+                disabled={saved || savingPlan}
+                className="h-11 rounded-xl bg-orange-600 px-5 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-orange-400"
+              >
+                {savingPlan
+                  ? "Saving…"
+                  : saved
+                    ? "✓ Saved"
+                    : "Save plan"}
+              </button>
 
-                <h3 className="mt-1 text-xl font-bold">
-                  {t("wk.next")}
-                </h3>
-              </div>
+              <button
+                type="button"
+                onClick={sendToShoppingList}
+                className="h-11 rounded-xl border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
+              >
+                {t("pl.shop")}
+              </button>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                {/* Save */}
+              <details className="relative">
+                <summary className="flex h-11 cursor-pointer list-none items-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 marker:hidden hover:bg-zinc-50">
+                  {t("ui.moreActions")} ▾
+                </summary>
 
-                <button
-                  type="button"
-                  onClick={saveWeeklyPlan}
-                  disabled={saved || savingPlan}
-                  className="rounded-full bg-orange-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-orange-400"
-                >
-                  {savingPlan
-                    ? "Saving..."
-                    : saved
-                      ? "✓ Saved to Saved Plans"
-                      : "💾 Save Weekly Plan"}
-                </button>
-
-                {/* Saved Plans */}
-
-                <button
-                  type="button"
-                  onClick={openSavedPlans}
-                  className="rounded-full border border-indigo-200 bg-indigo-50 px-6 py-3 font-semibold text-indigo-700 transition hover:bg-indigo-100"
-                >
-                  💾 Saved Plans{savedPlanCount > 0 ? ` (${savedPlanCount})` : ""}
-                </button>
-
-                {/* Copy */}
-
-                <button
-                  type="button"
-                  onClick={copyWeeklyPlan}
-                  disabled={copied}
-                  className="rounded-full border border-zinc-200 bg-white px-6 py-3 font-semibold text-zinc-700 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700 disabled:cursor-not-allowed disabled:bg-zinc-100"
-                >
-                  {copied
-                    ? "✓ Copied"
-                    : "📋 Copy Plan"}
-                </button>
-
-                {/* WhatsApp Menu */}
-
-                <button
-                  type="button"
-                  onClick={shareWeeklyMenu}
-                  className="rounded-full border border-green-200 bg-green-50 px-6 py-3 font-semibold text-green-700 transition hover:bg-green-100"
-                >
-                  {whatsappShared
-                    ? "✓ Opening WhatsApp"
-                    : "📱 Share Menu on WhatsApp"}
-                </button>
-
-                {/* Regenerate */}
-
-                <button
-                  type="button"
-                  onClick={generateWeeklyPlan}
-                  disabled={loading}
-                  className="rounded-full border border-orange-200 bg-orange-50 px-6 py-3 font-semibold text-orange-700 shadow-sm transition hover:border-orange-300 hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {loading
-                    ? "⏳ Regenerating..."
-                    : "🔄 Regenerate Plan"}
-                </button>
-
-                {/* Shopping */}
-
-                <button
-                  type="button"
-                  onClick={sendToShoppingList}
-                  className="rounded-full border border-green-200 bg-green-50 px-6 py-3 font-semibold text-green-700 transition hover:bg-green-100"
-                >
-                  {t("pl.shop")}
-                </button>
-
-                {/* WhatsApp Shopping */}
-
-                <button
-                  type="button"
-                  onClick={
-                    shareShoppingListOnWhatsApp
-                  }
-                  className="rounded-full border border-green-200 bg-white px-6 py-3 font-semibold text-green-700 transition hover:bg-green-50"
-                >
-                  {t("wk.sendWa")}
-                </button>
-
-                {/* Use Preferences */}
-
-                <button
-                  type="button"
-                  onClick={usePreferencesAgain}
-                  className="rounded-full border border-blue-200 bg-blue-50 px-6 py-3 font-semibold text-blue-700 transition hover:bg-blue-100"
-                >
-                  {t("wk.editPrefs")}
-                </button>
-
-                {/* Single Planner */}
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    router.push("/planner")
-                  }
-                  className="rounded-full border border-zinc-200 bg-white px-6 py-3 font-semibold text-zinc-700 transition hover:bg-zinc-50"
-                >
-                  🍽️ Single Meal Planner
-                </button>
-              </div>
+                <div className="absolute start-0 z-10 mt-2 w-64 rounded-xl bg-white p-1 shadow-lg ring-1 ring-zinc-200">
+                  {[
+                    {
+                      label: copied ? "✓ Copied" : "Copy plan",
+                      onClick: copyWeeklyPlan,
+                    },
+                    {
+                      label: whatsappShared
+                        ? "✓ Opening WhatsApp"
+                        : "Share menu on WhatsApp",
+                      onClick: shareWeeklyMenu,
+                    },
+                    {
+                      label: t("wk.sendWa"),
+                      onClick: shareShoppingListOnWhatsApp,
+                    },
+                    {
+                      label: loading ? "Regenerating…" : "Regenerate",
+                      onClick: generateWeeklyPlan,
+                    },
+                    {
+                      label: t("wk.editPrefs"),
+                      onClick: usePreferencesAgain,
+                    },
+                    {
+                      label: `Saved plans${savedPlanCount > 0 ? ` (${savedPlanCount})` : ""}`,
+                      onClick: openSavedPlans,
+                    },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={item.onClick}
+                      className="block w-full rounded-lg px-3 py-2 text-start text-sm text-zinc-700 transition hover:bg-zinc-100"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </details>
             </div>
-          </section>
-        )}
-
-        {/* Bottom CTA */}
-
-        {!weeklyPlan && !loading && (
-          <section className="mt-10 rounded-3xl bg-orange-600 p-8 text-center text-white md:p-12">
-            <div className="text-4xl">
-              🥘
-            </div>
-
-            <h2 className="mt-4 text-3xl font-bold">
-              {t("wk.oneWeek")}
-            </h2>
-
-            <p className="mx-auto mt-3 max-w-xl text-orange-100">
-              {t("wk.oneWeekText")}
-            </p>
           </section>
         )}
 

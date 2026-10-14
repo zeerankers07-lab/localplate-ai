@@ -13,14 +13,25 @@ import ReactMarkdown from "react-markdown";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/translations";
+import {
+  DEFAULT_CURRENCY,
+  MARKETS,
+  PRICE_AMOUNT,
+  PRICE_PREFIX,
+  detectCurrencyFromText,
+  formatAmount,
+  moneyTemplate,
+  priceAccuracyRules,
+  priceRule,
+  symbolPrefix,
+  toNumber,
+} from "@/lib/currency";
 
 // =========================
 // Options
 // =========================
 
-const FOOD_TYPES = ["Pakistani", "Indian", "Any"];
 const GOALS = ["Weight Loss", "Muscle Gain", "Maintain Weight", "Healthy Eating"];
-const BUDGETS = ["500", "1000", "2000"];
 const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner"];
 const DIETS = ["Normal", "Vegetarian", "High Protein"];
 const TIMES = ["15", "30", "60"];
@@ -40,9 +51,8 @@ const PANTRY_SUGGESTIONS = [
 
 const ALLERGY_SUGGESTIONS = ["Peanuts", "Dairy", "Eggs", "Gluten", "Fish"];
 
+// Food type and budget depend on the selected currency (see lib/currency.ts).
 const DEFAULTS = {
-  foodType: "Pakistani",
-  budget: "1000",
   mealType: "Lunch",
   diet: "Normal",
   time: "30",
@@ -50,6 +60,26 @@ const DEFAULTS = {
   servings: "2",
   spiceLevel: "Medium",
 };
+
+type ReusePreferences = Partial<
+  Record<
+    | "foodType"
+    | "budget"
+    | "currency"
+    | "mealType"
+    | "diet"
+    | "time"
+    | "goal"
+    | "servings"
+    | "city"
+    | "spiceLevel"
+    | "allergies"
+    | "dislikes"
+    | "pantry"
+    | "extraPreferences",
+    string
+  >
+>;
 
 type Toast = {
   id: number;
@@ -173,7 +203,8 @@ const inputClass =
 // =========================
 
 export default function PlannerPage() {
-  const { t, label, lang } = useI18n();
+  const { t, label, lang, currency, currencyReady } = useI18n();
+  const market = MARKETS[currency];
 
   const trHeading = (children: React.ReactNode) => {
     const text =
@@ -190,8 +221,10 @@ export default function PlannerPage() {
   const router = useRouter();
 
   // Planner preferences
-  const [foodType, setFoodType] = useState(DEFAULTS.foodType);
-  const [budget, setBudget] = useState(DEFAULTS.budget);
+  const [foodType, setFoodType] = useState(
+    MARKETS[DEFAULT_CURRENCY].defaultFoodType
+  );
+  const [budget, setBudget] = useState(MARKETS[DEFAULT_CURRENCY].defaultBudget);
   const [mealType, setMealType] = useState(DEFAULTS.mealType);
   const [diet, setDiet] = useState(DEFAULTS.diet);
   const [time, setTime] = useState(DEFAULTS.time);
@@ -236,59 +269,72 @@ export default function PlannerPage() {
   }, []);
 
   // =========================
-  // Load preferences from "Use Again" / Quick Start
+  // Load preferences from "Use Again" / Quick Start. The budget and food type
+  // always follow the selected currency: saved ones are used only when they
+  // were chosen in the same currency.
   // =========================
 
+  const reuseLoaded = useRef(false);
+
   useEffect(() => {
-    const applyReusePreferences = () => {
-      const savedPreferences = localStorage.getItem(
-        "localplate_reuse_preferences"
+    if (!currencyReady) return;
+
+    const applyPreferences = () => {
+      const activeMarket = MARKETS[currency];
+      let preferences: ReusePreferences | null = null;
+
+      if (!reuseLoaded.current) {
+        reuseLoaded.current = true;
+
+        try {
+          const saved = localStorage.getItem("localplate_reuse_preferences");
+
+          if (saved) {
+            preferences = JSON.parse(saved) as ReusePreferences;
+            localStorage.removeItem("localplate_reuse_preferences");
+          }
+        } catch (error) {
+          console.error("Failed to load saved planner preferences:", error);
+          localStorage.removeItem("localplate_reuse_preferences");
+        }
+      }
+
+      const sameCurrency =
+        !preferences?.currency || preferences.currency === currency;
+
+      setBudget(
+        preferences?.budget && sameCurrency
+          ? String(preferences.budget)
+          : activeMarket.defaultBudget
       );
+      setFoodType(preferences?.foodType || activeMarket.defaultFoodType);
 
-      if (!savedPreferences) return;
+      if (!preferences) return;
 
-      try {
-        const preferences = JSON.parse(savedPreferences);
-
-        if (preferences.foodType) setFoodType(preferences.foodType);
-        if (preferences.budget) setBudget(preferences.budget);
-        if (preferences.mealType) setMealType(preferences.mealType);
-        if (preferences.diet) setDiet(preferences.diet);
-        if (preferences.time) setTime(preferences.time);
-        if (preferences.goal) setGoal(preferences.goal);
-        if (preferences.servings) setServings(preferences.servings);
-        if (preferences.city !== undefined) {
-          setCity(preferences.city);
-        }
-        if (preferences.spiceLevel) {
-          setSpiceLevel(preferences.spiceLevel);
-        }
-        if (preferences.allergies !== undefined) {
-          setAllergies(preferences.allergies);
-        }
-        if (preferences.dislikes !== undefined) {
-          setDislikes(preferences.dislikes);
-        }
-        if (preferences.pantry !== undefined) {
-          setPantry(preferences.pantry);
-        }
-        if (preferences.extraPreferences !== undefined) {
-          setExtraPreferences(preferences.extraPreferences);
-        }
-
-        localStorage.removeItem("localplate_reuse_preferences");
-      } catch (error) {
-        console.error("Failed to load saved planner preferences:", error);
-
-        localStorage.removeItem("localplate_reuse_preferences");
+      if (preferences.mealType) setMealType(preferences.mealType);
+      if (preferences.diet) setDiet(preferences.diet);
+      if (preferences.time) setTime(preferences.time);
+      if (preferences.goal) setGoal(preferences.goal);
+      if (preferences.servings) setServings(preferences.servings);
+      if (preferences.city !== undefined) setCity(preferences.city);
+      if (preferences.spiceLevel) setSpiceLevel(preferences.spiceLevel);
+      if (preferences.allergies !== undefined) {
+        setAllergies(preferences.allergies);
+      }
+      if (preferences.dislikes !== undefined) {
+        setDislikes(preferences.dislikes);
+      }
+      if (preferences.pantry !== undefined) setPantry(preferences.pantry);
+      if (preferences.extraPreferences !== undefined) {
+        setExtraPreferences(preferences.extraPreferences);
       }
     };
 
     // Deferred so the state updates are not synchronous in the effect body.
-    const timer = window.setTimeout(applyReusePreferences, 0);
+    const timer = window.setTimeout(applyPreferences, 0);
 
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [currencyReady, currency]);
 
   // Scroll to the result (or loading card) when it appears.
   useEffect(() => {
@@ -305,12 +351,19 @@ export default function PlannerPage() {
   }, [mealPlan, loading, errorMessage]);
 
   const estimatedCost = useMemo(() => {
-    const match = mealPlan.match(/Total:?\**\s*Rs\.?\s*([\d,]+)/i);
-    if (!match) return null;
+    const match = mealPlan.match(
+      new RegExp(String.raw`Total:?\**\s*${PRICE_PREFIX}\s*${PRICE_AMOUNT}`, "i")
+    );
 
-    const value = Number(match[1].replace(/,/g, ""));
-    return Number.isFinite(value) ? value : null;
+    return match ? toNumber(match[1]) : null;
   }, [mealPlan]);
+
+  // The currency the plan was written in (it may differ from the selected one
+  // if the person switched currency after generating).
+  const planCurrency = useMemo(
+    () => detectCurrencyFromText(mealPlan) ?? currency,
+    [mealPlan, currency]
+  );
 
   const budgetNumber = Number(budget);
   const costPercent =
@@ -327,8 +380,8 @@ export default function PlannerPage() {
   };
 
   const resetPreferences = () => {
-    setFoodType(DEFAULTS.foodType);
-    setBudget(DEFAULTS.budget);
+    setFoodType(market.defaultFoodType);
+    setBudget(market.defaultBudget);
     setMealType(DEFAULTS.mealType);
     setDiet(DEFAULTS.diet);
     setTime(DEFAULTS.time);
@@ -368,11 +421,11 @@ export default function PlannerPage() {
         },
         body: JSON.stringify({
           message: `
-You are LocalPlate AI, an expert Pakistani food, nutrition and meal-planning assistant.
+You are LocalPlate AI, an expert ${market.foodAdj}food, nutrition and meal-planning assistant.
 
 Your job is to create ONE practical, realistic and personalized meal recommendation.
 
-The recommendation must feel useful for a real household in Pakistan.
+The recommendation must feel useful for a real household in ${market.country}.
 
 =========================
 USER PREFERENCES
@@ -388,7 +441,7 @@ Goal:
 ${goal}
 
 Budget:
-Rs. ${budget}
+${symbolPrefix(currency)}${budget} (${currency})
 
 Number of people:
 ${servings}
@@ -423,9 +476,9 @@ IMPORTANT RULES
 
 1. Give ONE best meal recommendation only.
 
-2. Prefer Pakistani and South Asian dishes when appropriate.
+2. Prefer ${market.foodFocus} dishes when appropriate, unless the food type selected above says otherwise.
 
-3. Prefer ingredients that are commonly available in Pakistan.
+3. Prefer ingredients that are commonly available in ${market.country}.
 
 4. Use the user's existing pantry ingredients whenever practical.
 
@@ -435,7 +488,9 @@ IMPORTANT RULES
 
 7. The budget is for this meal and the selected number of people.
 
-8. Give realistic Pakistani Rupee (PKR) cost estimates. Never estimate any single ingredient below Rs. 50 (the smallest note is Rs. 10) and round every price to the nearest Rs. 10.
+8. ${priceRule(currency)} Write every price with the symbol before the number, for example ${formatAmount(market.priceExample, currency)}. Never use another currency.
+
+${priceAccuracyRules(currency)}
 
 9. Do not suggest expensive or difficult-to-find ingredients unless absolutely necessary.
 
@@ -459,18 +514,18 @@ IMPORTANT RULES
 
 19. If the user has pantry ingredients, try to build the meal around them.
 
-20. If the city is provided, prefer food and ingredients commonly available in that area of Pakistan, but do not invent exact store prices.
+20. If the city is provided, prefer food and ingredients commonly available in that area of ${market.country}, but do not invent exact store prices.
 
 21. Do not make medical claims.
 
 22. Do not recommend unsafe diets or extreme calorie restriction.
 
-23. Keep the meal practical for a normal Pakistani household.
+23. Keep the meal practical for a normal ${market.demonym} household.
 
 24. Do not give multiple alternatives.
 
 25. Do not write a long introduction.
-26. Write the meal name, description, ingredient names, steps, bullet points and tip in ${lang === "ur" ? "Urdu (اردو), in Urdu script, not Roman Urdu" : lang === "hi" ? "Hindi (हिन्दी), in Devanagari script" : "English"}. Keep every "#" section heading exactly as shown in the response format below (in English). Use Latin digits (0-9) and write units such as g, kg, ml in English letters.
+26. Write the meal name, description, ingredient names, steps, bullet points and tip in ${lang === "ur" ? "Urdu (اردو), in Urdu script, not Roman Urdu" : lang === "hi" ? "Hindi (हिन्दी), in Devanagari script" : "English"}. Keep every "#" section heading exactly as shown in the response format below (in English). Use Latin digits (0-9), write units (${market.units}) in English letters and write every price with the currency symbol exactly as shown.
 
 =========================
 RESPONSE FORMAT
@@ -484,7 +539,9 @@ RESPONSE FORMAT
 
 Use this format:
 
-- Ingredient — quantity — estimated cost
+- Ingredient — quantity — price
+
+If you are not sure of the price of an item, write only "- Ingredient — quantity" with no price.
 
 Include all important ingredients.
 
@@ -499,7 +556,7 @@ Give clear numbered steps.
 
 ## 💰 Estimated Cost
 
-**Total: Rs. XXX**
+**Total: ${moneyTemplate(currency, "XXX")}**
 
 Make the estimated total realistic and within the selected budget.
 
@@ -516,8 +573,9 @@ Give 2–4 short bullet points explaining how the meal matches the user's goal, 
 Give one useful cooking, budget or food-waste reduction tip.
 
 Remember:
-The meal must be realistic for a Pakistani household, practical to cook and stay within the selected budget.
+The meal must be realistic for a household in ${market.country}, practical to cook and stay within the selected budget.
 `,
+          currency,
         }),
       });
 
@@ -693,7 +751,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
   const summaryRows: [string, string][] = [
     [t("pl.food"), label("opt", foodType)],
     [t("cook.meal"), label("opt", mealType)],
-    [t("cook.budget"), budget ? `Rs. ${budget}` : "—"],
+    [t("cook.budget"), budget ? formatAmount(Number(budget), currency) : "—"],
     [t("cook.people"), servings],
     [t("cook.goal"), label("opt", goal)],
     [t("cook.diet"), label("opt", diet)],
@@ -735,7 +793,8 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
               {t("pl.aiPlanner")}
             </p>
             <p className="truncate text-xs text-zinc-500">
-              Rs. {budget || "—"} · {label("opt", mealType)} ·{" "}
+              {budget ? formatAmount(Number(budget), currency) : "—"} ·{" "}
+              {label("opt", mealType)} ·{" "}
               {t("pl.people", { n: servings })}
             </p>
           </div>
@@ -784,7 +843,16 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
               <div>
                 <FieldLabel>{t("pl.qFood")}</FieldLabel>
                 <ChipGroup
-                  options={FOOD_TYPES}
+                  options={
+                    market.foodTypes.includes(foodType)
+                      ? market.foodTypes
+                      : [foodType, ...market.foodTypes]
+                  }
+                  columns={
+                    market.foodTypes.length > 3
+                      ? "grid-cols-2 sm:grid-cols-4"
+                      : "grid-cols-3"
+                  }
                   format={(option) => label("opt", option)}
                   value={foodType}
                   onChange={setFoodType}
@@ -804,15 +872,15 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
               <div>
                 <FieldLabel>{t("pl.qBudget")}</FieldLabel>
                 <ChipGroup
-                  options={BUDGETS}
+                  options={market.budgetPresets}
                   value={budget}
                   onChange={setBudget}
-                  format={(amount) => `Rs. ${amount}`}
+                  format={(amount) => formatAmount(Number(amount), currency)}
                 />
 
                 <div className="relative mt-2.5">
                   <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-zinc-400">
-                    Rs.
+                    {market.symbol}
                   </span>
                   <input
                     type="text"
@@ -1164,56 +1232,24 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
         {!loading && mealPlan && (
           <section
             id="meal-result"
-            className="mt-8 scroll-mt-24 overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-xl shadow-zinc-200/40"
+            className="mt-8 scroll-mt-24 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-100"
           >
             <div className="p-5 sm:p-8">
-              <div className="flex items-center gap-4">
-                <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-orange-100 text-2xl">
-                  🍽️
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-xl font-bold text-zinc-900 sm:text-2xl">
-                    {t("pl.resultTitle")}
-                  </h2>
-                  <p className="mt-0.5 text-sm text-zinc-500">
-                    {t("pl.personalized")}
-                  </p>
-                </div>
-              </div>
-
-              {/* Preference summary */}
-              <div className="mt-5 flex flex-wrap gap-2">
-                {[
-                  ["bg-orange-50 text-orange-700", `🍛 ${label("opt", foodType)}`],
-                  ["bg-green-50 text-green-700", `💰 Rs. ${budget}`],
-                  ["bg-blue-50 text-blue-700", `🍽️ ${label("opt", mealType)}`],
-                  ["bg-purple-50 text-purple-700", `🎯 ${label("opt", goal)}`],
-                  ["bg-yellow-50 text-yellow-700", `⏱️ ${t("unit.min", { n: time })}`],
-                  ["bg-pink-50 text-pink-700", `👥 ${t("pl.people", { n: servings })}`],
-                  ["bg-zinc-100 text-zinc-700", `🌶️ ${label("opt", spiceLevel)}`],
-                ].map(([tone, label]) => (
-                  <span
-                    key={label}
-                    className={`rounded-full px-3 py-1.5 text-xs font-medium sm:text-sm ${tone}`}
-                  >
-                    {label}
-                  </span>
-                ))}
-              </div>
-
               {/* Cost vs budget */}
-              {estimatedCost !== null && costPercent !== null && (
-                <div className="mt-6 rounded-2xl bg-green-50 p-4">
+              {estimatedCost !== null &&
+                costPercent !== null &&
+                planCurrency === currency && (
+                <div>
                   <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="font-semibold text-green-800">
+                    <span className="text-zinc-500">
                       {t("cook.estCost")}
                     </span>
-                    <span className="font-bold text-green-700">
-                      Rs. {estimatedCost.toLocaleString()} / Rs.{" "}
-                      {budgetNumber.toLocaleString()}
+                    <span className="font-semibold text-zinc-900">
+                      {formatAmount(estimatedCost, currency)} /{" "}
+                      {formatAmount(budgetNumber, currency)}
                     </span>
                   </div>
-                  <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-green-100">
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
                         estimatedCost > budgetNumber
@@ -1232,7 +1268,7 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
               )}
 
               {/* Markdown result */}
-              <div className="mt-6 rounded-2xl bg-[#fffaf5] p-4 sm:p-7">
+              <div className="mt-5 rounded-xl bg-[#fffaf5] p-4 sm:p-6">
                 <ReactMarkdown
                   components={{
                     h1: ({ children }) => (
@@ -1281,12 +1317,12 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
             </div>
 
             {/* Actions */}
-            <div className="grid grid-cols-2 gap-2.5 border-t border-zinc-100 bg-zinc-50/70 p-4 sm:flex sm:flex-wrap sm:justify-center sm:p-5">
+            <div className="flex flex-wrap items-center gap-3 border-t border-zinc-100 bg-zinc-50/70 p-4 sm:p-5">
               <button
                 type="button"
                 onClick={saveMealPlan}
                 disabled={savingPlan || saved}
-                className="col-span-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-orange-600 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-orange-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-70 sm:col-span-1 sm:rounded-full"
+                className="h-11 rounded-xl bg-orange-600 px-5 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {savingPlan
                   ? t("cook.saving")
@@ -1298,43 +1334,35 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
               <button
                 type="button"
                 onClick={openShoppingList}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-green-600 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-green-700 active:scale-[0.97] sm:rounded-full"
+                className="h-11 rounded-xl border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
               >
                 {t("pl.shop")}
               </button>
 
-              <button
-                type="button"
-                onClick={generatePlan}
-                disabled={loading}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-zinc-900 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-zinc-800 active:scale-[0.97] disabled:opacity-60 sm:rounded-full"
-              >
-                {t("pl.regen")}
-              </button>
+              <details className="relative">
+                <summary className="flex h-11 cursor-pointer list-none items-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 marker:hidden hover:bg-zinc-50">
+                  {t("ui.moreActions")} ▾
+                </summary>
 
-              <button
-                type="button"
-                onClick={copyMealPlan}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-5 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 active:scale-[0.97] sm:rounded-full"
-              >
-                {t("pl.copy")}
-              </button>
-
-              <button
-                type="button"
-                onClick={shareOnWhatsApp}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-50 px-5 text-sm font-bold text-green-700 transition hover:bg-green-100 active:scale-[0.97] sm:rounded-full"
-              >
-                {t("pl.wa")}
-              </button>
-
-              <button
-                type="button"
-                onClick={scrollToForm}
-                className="col-span-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-5 text-sm font-bold text-orange-700 transition hover:bg-orange-50 active:scale-[0.97] sm:col-span-1 sm:rounded-full"
-              >
-                {t("pl.change")}
-              </button>
+                <div className="absolute bottom-full start-0 z-10 mb-2 w-56 rounded-xl bg-white p-1 shadow-lg ring-1 ring-zinc-200">
+                  {[
+                    { label: t("pl.regen"), onClick: generatePlan },
+                    { label: t("pl.copy"), onClick: copyMealPlan },
+                    { label: t("pl.wa"), onClick: shareOnWhatsApp },
+                    { label: t("pl.change"), onClick: scrollToForm },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={item.onClick}
+                      disabled={loading}
+                      className="block w-full rounded-lg px-3 py-2 text-start text-sm text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-60"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </details>
             </div>
           </section>
         )}
@@ -1345,7 +1373,8 @@ The meal must be realistic for a Pakistani household, practical to cook and stay
         <div className="mx-auto flex max-w-xl items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-bold text-zinc-800">
-              Rs. {budget || "—"} · {label("opt", mealType)} ·{" "}
+              {budget ? formatAmount(Number(budget), currency) : "—"} ·{" "}
+              {label("opt", mealType)} ·{" "}
               {t("pl.people", { n: servings })}
             </p>
             <p className="truncate text-[11px] text-zinc-500">

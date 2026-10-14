@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import FeedbackSection from "./FeedbackSection";
 
 type FeatureFlag = {
   feature_name: string;
@@ -3254,6 +3255,9 @@ export default function AdminPage() {
 
         </section>
 
+        {/* FEEDBACK */}
+        <FeedbackSection />
+
         {/* SECURITY */}
         <section className="lp-fade-up mt-8 rounded-3xl border border-white/10 bg-[#0f121b]/80 p-6 shadow-[0_10px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl">
 
@@ -3646,6 +3650,7 @@ type NavIconName =
   | "clipboard"
   | "cart"
   | "clock"
+  | "message"
   | "star";
 
 function NavIcon({
@@ -3699,6 +3704,7 @@ function NavIcon({
         <path d="M12 7v5l3 2" />
       </>
     ),
+    message: <path d="M4 5h16v11H9l-5 4V5z" />,
     star: (
       <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" />
     ),
@@ -3734,6 +3740,7 @@ const navSections: {
     { id: "plans", label: "Saved Plans", icon: "clipboard" },
     { id: "lists", label: "Shopping Lists", icon: "cart" },
     { id: "activity", label: "Activity Log", icon: "clock" },
+    { id: "feedback", label: "Feedback", icon: "message" },
   ];
 
 function QuickNav({

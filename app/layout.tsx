@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "./components/Navbar";
 import FeedbackWidget from "./components/FeedbackWidget";
+import Footer from "./components/Footer";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 
 const siteUrl =
@@ -72,6 +73,7 @@ export default function RootLayout({
         <LanguageProvider>
           <Navbar />
           {children}
+          <Footer />
           <FeedbackWidget />
         </LanguageProvider>
       </body>

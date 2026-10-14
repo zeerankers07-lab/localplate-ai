@@ -64,6 +64,15 @@ export default function FeedbackWidget() {
     };
   }, [open]);
 
+  // Lets other pages (e.g. Contact) open this panel.
+  useEffect(() => {
+    const openPanel = () => setOpen(true);
+
+    window.addEventListener("localplate:open-feedback", openPanel);
+    return () =>
+      window.removeEventListener("localplate:open-feedback", openPanel);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
 

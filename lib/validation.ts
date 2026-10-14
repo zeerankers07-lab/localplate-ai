@@ -9,6 +9,8 @@ export const aiRequestSchema = z
       .max(20000, "Message is too long."),
     // Optional. "cook" selects the What Can I Cook? assistant prompt.
     mode: z.enum(["cook"]).optional(),
+    // Optional. Picks the country, food and prices of the planner prompts.
+    currency: z.enum(["PKR", "INR", "USD"]).optional(),
   })
   .strict();
 

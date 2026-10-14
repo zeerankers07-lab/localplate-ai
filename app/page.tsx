@@ -65,39 +65,50 @@ const TOOLS: {
 ];
 
 const HIGHLIGHTS: TranslationKey[] = ["home.hl1", "home.hl2", "home.hl3"];
+const STEPS: TranslationKey[] = ["home.step1", "home.step2", "home.step3"];
 
 export default function Home() {
   const { t } = useI18n();
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#fff7ed_0%,#ffffff_42%,#fafafa_100%)] text-zinc-900">
+    <main className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#fff7ed_0%,#ffffff_45%,#fafafa_100%)] text-zinc-900">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(60%_70%_at_50%_0%,rgba(251,146,60,0.22),transparent)]"
+        className="pointer-events-none absolute inset-x-0 -top-28 mx-auto h-80 w-[44rem] max-w-full rounded-full bg-orange-200/50 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-24 top-44 size-64 rounded-full bg-amber-200/40 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-24 top-[28rem] size-64 rounded-full bg-orange-100/70 blur-3xl"
       />
 
-      <div className="relative mx-auto max-w-3xl px-4 pb-16 pt-12 sm:px-6 sm:pt-20">
+      <div className="relative mx-auto max-w-3xl px-4 pb-10 pt-8 sm:px-6 sm:pt-20">
         <div className="text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-white/80 px-3 py-1 text-xs font-medium text-orange-700 backdrop-blur">
+          <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-white/80 px-3 py-1 text-xs font-medium text-orange-700 shadow-sm backdrop-blur">
             <span className="size-1.5 rounded-full bg-orange-500" />
             {t("home.badge")}
           </span>
 
-          <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">
+          <h1 className="mt-5 text-[2rem] font-semibold leading-[1.15] tracking-tight sm:text-5xl">
             {t("home.title1")}{" "}
-            <span className="text-orange-600">{t("home.title2")}</span>
+            <span className="bg-[linear-gradient(90deg,#ea580c,#f59e0b)] bg-clip-text text-transparent">
+              {t("home.title2")}
+            </span>
           </h1>
 
-          <p className="mx-auto mt-4 max-w-md text-base text-zinc-600">
+          <p className="mx-auto mt-4 max-w-md text-[15px] text-zinc-600 sm:text-base">
             {t("home.subtitle")}
           </p>
         </div>
 
-        <div className="mt-10">
+        <div className="mt-8 sm:mt-10">
           <QuickStart />
         </div>
 
-        <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-zinc-500">
+        <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] text-zinc-500 sm:gap-x-6 sm:text-sm">
           {HIGHLIGHTS.map((item) => (
             <li key={item} className="inline-flex items-center gap-1.5">
               <Icon name="check" className="size-4 text-orange-600" />
@@ -106,12 +117,28 @@ export default function Home() {
           ))}
         </ul>
 
-        <div className="mt-12 grid gap-3 sm:grid-cols-3">
+        <ol className="mt-10 grid gap-3 sm:grid-cols-3">
+          {STEPS.map((step, index) => (
+            <li
+              key={step}
+              className="flex items-center gap-3 rounded-xl border border-zinc-200/80 bg-white/70 px-4 py-3 backdrop-blur"
+            >
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-orange-600 text-sm font-semibold text-white">
+                {index + 1}
+              </span>
+              <span className="text-sm font-medium text-zinc-800">
+                {t(step)}
+              </span>
+            </li>
+          ))}
+        </ol>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
           {TOOLS.map((tool) => (
             <Link
               key={tool.href}
               href={tool.href}
-              className="group flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4 outline-none transition hover:border-orange-300 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500"
+              className="group flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4 outline-none transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md focus-visible:ring-2 focus-visible:ring-orange-500"
             >
               <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-600 transition group-hover:bg-orange-100">
                 <Icon name={tool.icon} />
@@ -128,11 +155,12 @@ export default function Home() {
 
               <Icon
                 name="arrow"
-                className="size-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-orange-600"
+                className="size-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-orange-600 rtl:rotate-180 rtl:group-hover:-translate-x-0.5"
               />
             </Link>
           ))}
         </div>
+
       </div>
     </main>
   );

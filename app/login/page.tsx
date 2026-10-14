@@ -111,6 +111,15 @@ function GoogleIcon() {
   );
 }
 
+// Where to go after signing in. Only same-site paths are allowed.
+function getSafeNext(): string {
+  if (typeof window === "undefined") return "/planner";
+
+  const next = new URLSearchParams(window.location.search).get("next");
+
+  return next && /^\/(?![/\\])/.test(next) ? next : "/planner";
+}
+
 export default function LoginPage() {
   const { t } = useI18n();
   const [mode, setMode] = useState<Mode>("login");
@@ -133,8 +142,16 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   const [showWelcomePopup, setShowWelcomePopup] = useState(false);
+  const [redirectedFrom, setRedirectedFrom] = useState<string | null>(null);
 
   useEffect(() => {
+    // Sent here by a page that needs sign-in: show a clear message instead
+    // of the generic welcome popup.
+    if (new URLSearchParams(window.location.search).has("next")) {
+      setRedirectedFrom(getSafeNext());
+      return;
+    }
+
     const popupSeen = sessionStorage.getItem(
       "localplate_login_popup_seen"
     );
@@ -171,7 +188,7 @@ export default function LoginPage() {
         await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
-            redirectTo: `${window.location.origin}/auth/callback?next=/planner`,
+            redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(getSafeNext())}`,
           },
         });
 
@@ -249,7 +266,7 @@ export default function LoginPage() {
           throw loginError;
         }
 
-        window.location.href = "/planner";
+        window.location.href = getSafeNext();
         return;
       }
 
@@ -260,7 +277,7 @@ export default function LoginPage() {
           data: {
             full_name: name.trim(),
           },
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/planner`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(getSafeNext())}`,
         },
       });
 
@@ -293,6 +310,15 @@ export default function LoginPage() {
       setLoading(false);
     }
   }
+
+  const gateMessage =
+    redirectedFrom === null
+      ? ""
+      : redirectedFrom.startsWith("/cook")
+        ? t("login.needLoginCook")
+        : redirectedFrom.startsWith("/planner")
+          ? t("login.needLoginPlanner")
+          : t("login.needLoginGeneric");
 
   return (
     <main className="relative min-h-[calc(100vh-72px)] overflow-hidden bg-[#eef4ff] px-3 py-5 text-zinc-900 sm:px-6 sm:py-8 lg:py-10">
@@ -347,6 +373,15 @@ export default function LoginPage() {
                   : t("login.subSignup")}
               </p>
             </div>
+
+            {gateMessage && (
+              <div
+                role="status"
+                className="mb-3 rounded-xl border border-blue-200 bg-blue-50/90 px-3 py-2.5 text-xs font-medium leading-5 text-blue-900"
+              >
+                {gateMessage}
+              </div>
+            )}
 
             {/* Alerts */}
             {error && (
@@ -630,6 +665,17 @@ export default function LoginPage() {
 
             <p className="mx-auto mt-3 max-w-[330px] text-center text-[10px] leading-4 text-zinc-400">
               {t("login.footer")}
+            </p>
+
+            <p className="mx-auto mt-2 max-w-[330px] text-center text-[10px] leading-4 text-zinc-500">
+              {t("login.agree")}{" "}
+              <a href="/terms" className="font-semibold underline">
+                {t("footer.terms")}
+              </a>
+              {" · "}
+              <a href="/privacy" className="font-semibold underline">
+                {t("footer.privacy")}
+              </a>
             </p>
           </div>
         </div>

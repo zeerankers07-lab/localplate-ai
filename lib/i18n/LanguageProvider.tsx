@@ -14,8 +14,9 @@ import {
   type Lang,
   type TranslationKey,
 } from "./translations";
+import type { CurrencyCode } from "@/lib/currency";
 
-export type CurrencyCode = "PKR" | "INR" | "USD";
+export type { CurrencyCode };
 
 const LANG_KEY = "localplate_lang";
 const CURRENCY_KEY = "localplate_currency";
@@ -27,6 +28,9 @@ type I18nContext = {
   setLang: (lang: Lang) => void;
   dir: "ltr" | "rtl";
   currency: CurrencyCode;
+  // False until the saved or detected currency has been read, so pages do not
+  // set a budget for the temporary default.
+  currencyReady: boolean;
   setCurrency: (currency: CurrencyCode) => void;
   t: (key: TranslationKey, vars?: Vars) => string;
   // Translates "prefix.value" when it exists, otherwise returns the value.
@@ -57,6 +61,7 @@ function detectCurrency(): CurrencyCode {
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>("en");
   const [currency, setCurrencyState] = useState<CurrencyCode>("USD");
+  const [currencyReady, setCurrencyReady] = useState(false);
 
   // Read the saved choices (English and the detected currency are the defaults).
   useEffect(() => {
@@ -82,6 +87,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       } catch {
         setCurrencyState(detectCurrency());
       }
+
+      setCurrencyReady(true);
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -138,8 +145,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ lang, setLang, dir, currency, setCurrency, t, label }),
-    [lang, setLang, dir, currency, setCurrency, t, label]
+    () => ({
+      lang,
+      setLang,
+      dir,
+      currency,
+      currencyReady,
+      setCurrency,
+      t,
+      label,
+    }),
+    [lang, setLang, dir, currency, currencyReady, setCurrency, t, label]
   );
 
   return (

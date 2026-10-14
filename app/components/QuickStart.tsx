@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type KeyboardEvent } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
+import { createClient } from "@/lib/supabase/client";
 import type { TranslationKey } from "@/lib/i18n/translations";
+import { DEFAULT_CURRENCY, MARKETS, formatAmount } from "@/lib/currency";
 
-const BUDGETS = ["500", "1000", "2000"];
 const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner"];
 const DIETS = ["Normal", "Vegetarian", "High Protein"];
 const GOALS = ["Healthy Eating", "Weight Loss", "Maintain Weight"];
@@ -62,9 +63,14 @@ function Icon({
   );
 }
 
-const TABS: { id: Tab; label: TranslationKey; icon: IconName }[] = [
-  { id: "cook", label: "qs.tabCook", icon: "utensils" },
-  { id: "plan", label: "qs.tabPlan", icon: "calendar" },
+const TABS: {
+  id: Tab;
+  label: TranslationKey;
+  short: TranslationKey;
+  icon: IconName;
+}[] = [
+  { id: "cook", label: "qs.tabCook", short: "qs.tabCookShort", icon: "utensils" },
+  { id: "plan", label: "qs.tabPlan", short: "qs.tabPlanShort", icon: "calendar" },
 ];
 
 const chipBase =
@@ -73,6 +79,9 @@ const chipOn =
   "border-orange-600 bg-orange-600 text-white shadow-sm shadow-orange-600/25";
 const chipOff =
   "border-zinc-200 bg-white text-zinc-700 hover:border-orange-300 hover:bg-orange-50";
+
+const segBase =
+  "inline-flex min-h-11 w-full items-center justify-center rounded-xl border px-1.5 text-[13px] font-medium leading-tight whitespace-nowrap outline-none transition focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-1 active:scale-95 sm:px-3 sm:text-sm";
 
 const primaryButton =
   "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-7 text-sm font-semibold text-white shadow-md shadow-orange-600/25 outline-none transition hover:bg-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none sm:w-auto";
@@ -98,7 +107,10 @@ function OptionGroup({
         {label}
       </p>
 
-      <div className="mt-2.5 flex flex-wrap gap-2">
+      <div
+        className="mt-2.5 grid gap-1.5 sm:gap-2"
+        style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+      >
         {options.map((option) => {
           const active = option === value;
 
@@ -108,7 +120,7 @@ function OptionGroup({
               type="button"
               onClick={() => onChange(option)}
               aria-pressed={active}
-              className={`${chipBase} ${active ? chipOn : chipOff}`}
+              className={`${segBase} ${active ? chipOn : chipOff}`}
             >
               {format ? format(option) : option}
             </button>
@@ -121,12 +133,27 @@ function OptionGroup({
 
 export default function QuickStart() {
   const router = useRouter();
-  const { t, label } = useI18n();
+  const { t, label, currency, currencyReady } = useI18n();
+  const market = MARKETS[currency];
 
   const [tab, setTab] = useState<Tab>("cook");
 
   // Meal planner quick start
-  const [budget, setBudget] = useState("1000");
+  const [budget, setBudget] = useState(
+    MARKETS[DEFAULT_CURRENCY].defaultBudget
+  );
+
+  // The budget options follow the selected currency.
+  useEffect(() => {
+    if (!currencyReady) return;
+
+    const timer = window.setTimeout(
+      () => setBudget(MARKETS[currency].defaultBudget),
+      0
+    );
+
+    return () => window.clearTimeout(timer);
+  }, [currencyReady, currency]);
   const [mealType, setMealType] = useState("Lunch");
   const [diet, setDiet] = useState("Normal");
   const [goal, setGoal] = useState("Healthy Eating");
@@ -145,18 +172,37 @@ export default function QuickStart() {
     ),
   ];
 
+  // Guests sign in first, then land on the page they picked.
+  const goAfterAuth = async (path: string) => {
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push(`/login?next=${encodeURIComponent(path)}`);
+        return;
+      }
+    } catch (error) {
+      console.error("Could not check sign-in status:", error);
+    }
+
+    router.push(path);
+  };
+
   const startPlanning = () => {
     try {
       // The planner already reads these preferences on load.
       localStorage.setItem(
         "localplate_reuse_preferences",
-        JSON.stringify({ budget, mealType, diet, goal })
+        JSON.stringify({ budget, currency, mealType, diet, goal })
       );
     } catch (error) {
       console.error("Could not save quick start preferences:", error);
     }
 
-    router.push("/planner");
+    void goAfterAuth("/planner");
   };
 
   function toggleIngredient(item: string) {
@@ -190,7 +236,7 @@ export default function QuickStart() {
       console.error("Could not save ingredients:", error);
     }
 
-    router.push("/cook");
+    void goAfterAuth("/cook");
   };
 
   function handleTabKeys(event: KeyboardEvent<HTMLDivElement>) {
@@ -205,7 +251,7 @@ export default function QuickStart() {
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-[0_24px_60px_-28px_rgba(234,88,12,0.35)] sm:p-7">
+    <div className="rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-[0_24px_60px_-28px_rgba(234,88,12,0.35)] sm:p-7">
       <div
         role="tablist"
         aria-label={t("qs.tabs")}
@@ -225,14 +271,15 @@ export default function QuickStart() {
               aria-controls={`quickstart-panel-${item.id}`}
               tabIndex={active ? 0 : -1}
               onClick={() => setTab(item.id)}
-              className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-orange-500 ${
+              className={`inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 text-sm font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-orange-500 ${
                 active
                   ? "bg-white text-orange-700 shadow-sm"
                   : "text-zinc-500 hover:text-zinc-800"
               }`}
             >
               <Icon name={item.icon} />
-              {t(item.label)}
+              <span className="sm:hidden">{t(item.short)}</span>
+              <span className="hidden sm:inline">{t(item.label)}</span>
             </button>
           );
         })}
@@ -328,10 +375,10 @@ export default function QuickStart() {
           <div className="grid gap-6 sm:grid-cols-2">
             <OptionGroup
               label={t("qs.budget")}
-              options={BUDGETS}
+              options={market.budgetPresets}
               value={budget}
               onChange={setBudget}
-              format={(option) => `Rs. ${option}`}
+              format={(option) => formatAmount(Number(option), currency)}
             />
 
             <OptionGroup
@@ -339,7 +386,7 @@ export default function QuickStart() {
               options={MEAL_TYPES}
               value={mealType}
               onChange={setMealType}
-              format={(option) => label("opt", option)}
+              format={(option) => label("qs.m", option)}
             />
 
             <OptionGroup
@@ -347,7 +394,7 @@ export default function QuickStart() {
               options={DIETS}
               value={diet}
               onChange={setDiet}
-              format={(option) => label("opt", option)}
+              format={(option) => label("qs.d", option)}
             />
 
             <OptionGroup
@@ -355,13 +402,14 @@ export default function QuickStart() {
               options={GOALS}
               value={goal}
               onChange={setGoal}
-              format={(option) => label("opt", option)}
+              format={(option) => label("qs.g", option)}
             />
           </div>
 
           <div className="mt-6 flex flex-col gap-4 border-t border-zinc-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-zinc-500">
-              Rs. {budget} · {mealType} · {diet} · {goal}
+              {formatAmount(Number(budget), currency)} · {label("qs.m", mealType)} · {label("qs.d", diet)} ·{" "}
+              {label("qs.g", goal)}
             </p>
 
             <button

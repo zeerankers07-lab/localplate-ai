@@ -5,6 +5,17 @@ import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
+import {
+    detectCurrencyFromText,
+    formatAmount,
+    type CurrencyCode,
+} from "@/lib/currency";
+
+// Plans do not store a currency: it is read from the prices in the plan text.
+// Plans saved before multi-currency support were all in Pakistani rupees.
+function savedPlanCurrency(mealPlan: string): CurrencyCode {
+    return detectCurrencyFromText(mealPlan) ?? "PKR";
+}
 
 const PAGE_SIZE = 8;
 
@@ -269,6 +280,7 @@ export default function SavedPlansPage() {
                     "localplate_reuse_weekly_preferences",
                     JSON.stringify({
                         budget: plan.budget,
+                        currency: savedPlanCurrency(plan.mealPlan),
                         foodType: plan.foodType,
                         diet: plan.diet,
                         goal: plan.goal,
@@ -296,6 +308,7 @@ export default function SavedPlansPage() {
                 JSON.stringify({
                     foodType: plan.foodType,
                     budget: plan.budget,
+                    currency: savedPlanCurrency(plan.mealPlan),
                     mealType: plan.mealType,
                     diet: plan.diet,
                     time: plan.time,
@@ -557,7 +570,7 @@ export default function SavedPlansPage() {
                 </section>
 
                 {/* Search, filters, sort */}
-                <section className="mt-6 rounded-3xl border border-zinc-100 bg-white p-4 shadow-sm sm:p-5">
+                <section className="mt-5 rounded-2xl border border-zinc-100 bg-white p-3 shadow-sm sm:p-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                         <div className="relative flex-1">
                             <span
@@ -722,7 +735,7 @@ export default function SavedPlansPage() {
                             {t("sp.plans")}
                         </p>
 
-                        <section className="mt-3 space-y-4 sm:space-y-5">
+                        <section className="mt-3 space-y-3">
                             {shownPlans.map((plan) => {
                                 const isOpen = openPlans.includes(plan.id);
                                 const weekly = isWeeklyPlan(plan);
@@ -730,7 +743,7 @@ export default function SavedPlansPage() {
                                 return (
                                     <article
                                         key={plan.id}
-                                        className={`overflow-hidden rounded-3xl border border-l-4 border-zinc-100 bg-white shadow-sm transition-shadow duration-200 hover:shadow-lg ${weekly
+                                        className={`overflow-hidden rounded-2xl border border-l-4 border-zinc-100 bg-white shadow-sm ${weekly
                                                 ? "border-l-indigo-500"
                                                 : "border-l-orange-500"
                                             }`}
@@ -800,66 +813,32 @@ export default function SavedPlansPage() {
                                                 </button>
                                             </div>
 
-                                            {/* Preference badges */}
-                                            <div className="mt-4 flex flex-wrap gap-2">
-                                                <span className="rounded-full bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700">
-                                                    🍛 {plan.foodType}
-                                                </span>
-
-                                                <span className="rounded-full bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700">
-                                                    💰 Rs. {plan.budget}
-                                                </span>
-
-                                                <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700">
-                                                    🍽️ {plan.mealType}
-                                                </span>
-
-                                                <span className="rounded-full bg-purple-50 px-3 py-1.5 text-xs font-medium text-purple-700">
-                                                    🥗 {plan.diet}
-                                                </span>
-
-                                                {plan.goal && (
-                                                    <span className="rounded-full bg-pink-50 px-3 py-1.5 text-xs font-medium text-pink-700">
-                                                        🎯 {plan.goal}
-                                                    </span>
-                                                )}
-
-                                                {plan.servings && (
-                                                    <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700">
-                                                        👥 {plan.servings} people
-                                                    </span>
-                                                )}
-
-                                                {plan.spiceLevel && (
-                                                    <span className="rounded-full bg-yellow-50 px-3 py-1.5 text-xs font-medium text-yellow-700">
-                                                        🌶️ {plan.spiceLevel}
-                                                    </span>
-                                                )}
-
-                                                {plan.city && (
-                                                    <span className="rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-700">
-                                                        📍 {plan.city}
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            {/* Preview */}
-                                            {!isOpen && (
-                                                <div className="mt-4 rounded-2xl bg-[#fffaf5] p-4">
-                                                    <p className="line-clamp-2 text-sm leading-6 text-zinc-600">
-                                                        {plan.mealPlan
-                                                            .replace(/^#+\s*/gm, "")
-                                                            .replace(/\*\*/g, "")
-                                                            .slice(0, 350)}
-                                                    </p>
-                                                </div>
-                                            )}
+                                            {/* Details */}
+                                            <p className="mt-3 text-xs text-zinc-500">
+                                                {[
+                                                    plan.foodType,
+                                                    plan.budget
+                                                        ? Number.isFinite(Number(plan.budget))
+                                                            ? formatAmount(
+                                                                Number(plan.budget),
+                                                                savedPlanCurrency(plan.mealPlan)
+                                                            )
+                                                            : plan.budget
+                                                        : null,
+                                                    plan.mealType,
+                                                    plan.diet,
+                                                    plan.servings ? `${plan.servings} people` : null,
+                                                    plan.city,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(" · ")}
+                                            </p>
 
                                             <button
                                                 type="button"
                                                 onClick={() => togglePlan(plan.id)}
                                                 aria-expanded={isOpen}
-                                                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50 py-2.5 text-sm font-bold text-orange-700 transition hover:bg-orange-100 active:scale-[0.98] sm:w-auto sm:px-5"
+                                                className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-700 hover:text-orange-800"
                                             >
                                                 <span
                                                     aria-hidden="true"
@@ -942,40 +921,38 @@ export default function SavedPlansPage() {
                                         )}
 
                                         {/* Actions */}
-                                        <div className="grid grid-cols-2 gap-2 border-t border-zinc-100 bg-zinc-50/70 p-3 sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:gap-2.5 sm:p-4 sm:px-6">
+                                        <div className="flex flex-wrap items-center gap-2 border-t border-zinc-100 bg-zinc-50/70 px-4 py-3 sm:px-6">
                                             <button
                                                 type="button"
                                                 onClick={() => useAgain(plan)}
-                                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-orange-700 active:scale-[0.97] sm:rounded-full sm:px-5"
+                                                className="h-10 rounded-xl bg-orange-600 px-4 text-sm font-semibold text-white transition hover:bg-orange-700"
                                             >
-                                                <span aria-hidden="true">🔁</span>
                                                 {t("sp.useAgain")}
                                             </button>
 
                                             <button
                                                 type="button"
                                                 onClick={() => openShoppingList(plan)}
-                                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 text-sm font-bold text-green-700 transition hover:bg-green-100 active:scale-[0.97] sm:rounded-full sm:px-5"
+                                                className="h-10 rounded-xl border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
                                             >
-                                                <span aria-hidden="true">🛒</span>
                                                 {t("nav.shopping")}
                                             </button>
+
+                                            <span className="flex-1" />
 
                                             <button
                                                 type="button"
                                                 onClick={() => copyPlan(plan)}
-                                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 active:scale-[0.97] sm:rounded-full sm:px-5"
+                                                className="h-10 px-2 text-sm font-medium text-zinc-600 hover:text-zinc-900"
                                             >
-                                                <span aria-hidden="true">📋</span>
                                                 {t("sp.copy")}
                                             </button>
 
                                             <button
                                                 type="button"
                                                 onClick={() => setPlanToDelete(plan)}
-                                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 text-sm font-bold text-red-600 transition hover:bg-red-100 active:scale-[0.97] sm:rounded-full sm:px-5"
+                                                className="h-10 px-2 text-sm font-medium text-red-600 hover:text-red-700"
                                             >
-                                                <span aria-hidden="true">🗑️</span>
                                                 {t("sp.delete")}
                                             </button>
                                         </div>

@@ -4,6 +4,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
+import {
+    MARKETS,
+    PRICE_AMOUNT,
+    PRICE_PREFIX,
+    detectCurrencyFromText,
+    formatAmount,
+    roundPrice,
+    toNumber,
+    type CurrencyCode,
+} from "@/lib/currency";
 
 type FilterMode = "all" | "remaining" | "purchased";
 
@@ -106,22 +116,21 @@ function getCategory(name: string): Category {
     return "Other";
 }
 
+// A price written with any symbol or code: Rs. 850, PKR 850, INR 240,
+// ₹240, USD 7.50 or $7.50.
+const PRICE_PATTERN = new RegExp(`${PRICE_PREFIX}\\s*${PRICE_AMOUNT}`, "i");
+const PRICE_START_PATTERN = new RegExp(`${PRICE_PREFIX}\\s*[\\d,]`, "i");
+
 function parseCost(value: string): number | null {
-    const match = value.match(
-        /(?:Rs\.?|PKR|₨)\s*([\d,]+(?:\.\d+)?)/i
-    );
+    const match = value.match(PRICE_PATTERN);
 
-    if (!match) return null;
-
-    const parsed = Number(match[1].replace(/,/g, ""));
-    return Number.isFinite(parsed) ? parsed : null;
+    return match ? toNumber(match[1]) : null;
 }
 
-// Smallest realistic price for one item is Rs. 50. Prices are rounded to Rs. 10.
-const MIN_ITEM_PRICE = 50;
-
-function estimatePrice(value: number) {
-    return Math.max(MIN_ITEM_PRICE, Math.round(value / 10) * 10);
+// Every market has its own smallest realistic price and rounding step
+// (Rs. 50 / Rs. 10, ₹10 / ₹5, $0.50 / $0.25). See lib/currency.ts.
+function estimatePrice(value: number, code: CurrencyCode) {
+    return roundPrice(value, code);
 }
 
 function extractSection(text: string) {
@@ -144,7 +153,10 @@ function extractSection(text: string) {
     return fallback?.[1] || "";
 }
 
-function parseShoppingItems(text: string): ShoppingItem[] {
+function parseShoppingItems(
+    text: string,
+    code: CurrencyCode
+): ShoppingItem[] {
     const section = extractSection(text);
     if (!section.trim()) return [];
 
@@ -178,11 +190,11 @@ function parseShoppingItems(text: string): ShoppingItem[] {
 
         const name = parts[0] || clean;
         const rawCost = parseCost(clean);
-        const cost = rawCost === null ? null : estimatePrice(rawCost);
+        const cost = rawCost === null ? null : estimatePrice(rawCost, code);
 
         let quantity = parts[1] || "";
 
-        if (quantity && /(?:Rs\.?|PKR|₨)\s*[\d,]/i.test(quantity)) {
+        if (quantity && PRICE_START_PATTERN.test(quantity)) {
             quantity = "";
         }
 
@@ -206,12 +218,13 @@ function itemText(
     item: ShoppingItem,
     purchased: boolean,
     includeStatus = true,
-    effectiveCost: number | null = item.cost
+    effectiveCost: number | null = item.cost,
+    code: CurrencyCode = "PKR"
 ) {
     const quantity = item.quantity ? ` — ${item.quantity}` : "";
     const cost =
         effectiveCost !== null
-            ? ` — Rs. ${effectiveCost.toLocaleString()}`
+            ? ` — ${formatAmount(effectiveCost, code)}`
             : "";
     const status = includeStatus && purchased ? " ✓" : "";
 
@@ -221,7 +234,7 @@ function itemText(
 const INBOX_KEY = "localplate_shopping_inbox";
 
 const INCOMING_UNITS =
-    "kgs?|g|gm|grams?|mg|l|liters?|litres?|ml|cups?|tbsp|tsp|tablespoons?|teaspoons?|pieces?|pcs?|cloves?|slices?|pinch|bunch|cans?|packets?|dozen";
+    "kgs?|g|gm|grams?|mg|l|liters?|litres?|ml|cups?|lbs?|pounds?|oz|ounces?|tbsp|tsp|tablespoons?|teaspoons?|pieces?|pcs?|cloves?|slices?|pinch|bunch|cans?|packets?|dozen";
 
 const INCOMING_QUANTITY = new RegExp(
     `^(\\d+\\s+\\d+/\\d+|\\d+/\\d+|\\d+(?:\\.\\d+)?)\\s*(${INCOMING_UNITS})?\\b\\s*(?:of\\s+)?(.+)$`,
@@ -313,7 +326,7 @@ function mergeQuantity(existing: string, incoming: string) {
 }
 
 export default function ShoppingListPage() {
-    const { t, label } = useI18n();
+    const { t, label, currency } = useI18n();
     const router = useRouter();
     const [shoppingList, setShoppingList] = useState("");
     const [checkedItems, setCheckedItems] = useState<string[]>([]);
@@ -724,9 +737,17 @@ export default function ShoppingListPage() {
         manualPrices,
     ]);
 
+    // The list keeps the currency it was written in, even if the person
+    // switches currency later. A list without prices uses the selected one.
+    const listCurrency = useMemo(
+        () => detectCurrencyFromText(shoppingList) ?? currency,
+        [shoppingList, currency]
+    );
+    const listMarket = MARKETS[listCurrency];
+
     const parsedItems = useMemo(
-        () => parseShoppingItems(shoppingList),
-        [shoppingList]
+        () => parseShoppingItems(shoppingList, listCurrency),
+        [shoppingList, listCurrency]
     );
 
     const ingredientItems = useMemo(() => {
@@ -1189,7 +1210,8 @@ export default function ShoppingListPage() {
                 item,
                 checkedItems.includes(item.id),
                 !remainingOnly,
-                getEffectiveCost(item)
+                getEffectiveCost(item),
+                listCurrency
             )
         );
 
@@ -1201,8 +1223,10 @@ export default function ShoppingListPage() {
             t("sh.shTotal", { n: totalItems }),
             t("sh.shBought", { n: purchasedItems }),
             t("sh.shRemain", { n: remainingItems }),
-            t("sh.shTotalCost", { n: totalCost.toLocaleString() }),
-            t("sh.shRemainCost", { n: remainingCost.toLocaleString() }),
+            t("sh.shTotalCost", { n: formatAmount(totalCost, listCurrency) }),
+            t("sh.shRemainCost", {
+                n: formatAmount(remainingCost, listCurrency),
+            }),
             "",
             t("sh.shNote"),
         ].join("\n");
@@ -1487,53 +1511,19 @@ export default function ShoppingListPage() {
                     </p>
                 </section>
 
-                <section className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-                    {[
-                        [t("sh.total"), totalItems.toString(), "🛒"],
-                        [t("sh.purchased"), purchasedItems.toString(), "✅"],
-                        [t("sh.remaining"), remainingItems.toString(), "📌"],
-                        [
-                            t("sh.remainingCost"),
-                            `Rs. ${remainingCost.toLocaleString()}`,
-                            "💰",
-                        ],
-                    ].map(([label, value, icon]) => (
-                        <div
-                            key={label}
-                            className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm sm:p-5"
-                        >
-                            <div className="flex items-center justify-between">
-                                <p className="text-sm text-zinc-500">
-                                    {label}
-                                </p>
-                                <span>{icon}</span>
-                            </div>
-                            <p className="mt-2 truncate text-lg font-bold sm:text-xl">
-                                {value}
-                            </p>
-                        </div>
-                    ))}
-                </section>
-
-                <section className="mt-5 rounded-3xl border border-zinc-100 bg-white p-5 shadow-sm md:p-6">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <p className="font-bold">
-                                {t("sh.progress")}
-                            </p>
-                            <p className="mt-1 text-sm text-zinc-500">
-                                {t("sh.progressText", { a: purchasedItems, b: totalItems })}
-                            </p>
-                        </div>
-
-                        <div className="text-right">
-                            <p className="text-2xl font-bold text-orange-600">
-                                {progress}%
-                            </p>
-                        </div>
+                <section className="mt-5 rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="font-semibold text-zinc-800">
+                            {t("sh.done", { a: purchasedItems, b: totalItems })}
+                        </span>
+                        <span className="truncate font-semibold text-green-600">
+                            {t("sh.left", {
+                                n: formatAmount(remainingCost, listCurrency),
+                            })}
+                        </span>
                     </div>
 
-                    <div className="mt-4 h-3 overflow-hidden rounded-full bg-zinc-100">
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100">
                         <div
                             className="h-full rounded-full bg-orange-600 transition-all duration-500"
                             style={{ width: `${progress}%` }}
@@ -1541,80 +1531,73 @@ export default function ShoppingListPage() {
                     </div>
 
                     {progress === 100 && totalItems > 0 && (
-                        <div className="mt-4 rounded-2xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+                        <p className="mt-3 text-sm font-semibold text-green-700">
                             {t("sh.complete")}
-                        </div>
+                        </p>
                     )}
                 </section>
 
                 {totalItems > 0 && (
-                    <section className="mt-5 rounded-3xl border border-zinc-100 bg-white p-3 shadow-sm sm:p-4">
-                        <div className="grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap sm:gap-3">
-                            <button
-                                type="button"
-                                onClick={toggleAllItems}
-                                disabled={!totalItems}
-                                className="col-span-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-orange-700 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-1 sm:w-auto sm:rounded-full sm:px-5"
-                            >
-                                <span aria-hidden="true">☑</span>
-                                <span>
+                    <section className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={sendToWhatsApp}
+                            disabled={!totalItems}
+                            className="h-11 rounded-xl bg-green-600 px-5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {whatsappOpened ? t("sh.waOpened") : t("sh.waShare")}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={copyShoppingList}
+                            disabled={!totalItems}
+                            className="h-11 rounded-xl border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {copied ? t("toast.copied") : t("sh.copyList")}
+                        </button>
+
+                        <details className="relative">
+                            <summary className="flex h-11 cursor-pointer list-none items-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 marker:hidden hover:bg-zinc-50">
+                                {t("ui.moreActions")} ▾
+                            </summary>
+
+                            <div className="absolute start-0 top-full z-10 mt-2 w-56 rounded-xl bg-white p-1 shadow-lg ring-1 ring-zinc-200">
+                                <button
+                                    type="button"
+                                    onClick={toggleAllItems}
+                                    className="block w-full rounded-lg px-3 py-2 text-start text-sm text-zinc-700 hover:bg-zinc-100"
+                                >
                                     {purchasedItems === totalItems && totalItems > 0
                                         ? t("sh.unselect")
                                         : t("sh.selectAll")}
-                                </span>
-                            </button>
+                                </button>
 
-                            <button
-                                type="button"
-                                onClick={copyShoppingList}
-                                disabled={!totalItems}
-                                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm font-bold text-zinc-800 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-full sm:px-5"
-                            >
-                                <span aria-hidden="true">{copied ? "✓" : "⧉"}</span>
-                                <span>{copied ? t("toast.copied") : t("sh.copyList")}</span>
-                            </button>
+                                <button
+                                    type="button"
+                                    onClick={downloadShoppingList}
+                                    className="block w-full rounded-lg px-3 py-2 text-start text-sm text-zinc-700 hover:bg-zinc-100"
+                                >
+                                    {downloaded ? t("sh.downloaded") : t("sh.download")}
+                                </button>
 
-                            <button
-                                type="button"
-                                onClick={downloadShoppingList}
-                                disabled={!totalItems}
-                                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm font-bold text-zinc-800 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-full sm:px-5"
-                            >
-                                <span aria-hidden="true">{downloaded ? "✓" : "↓"}</span>
-                                <span>{downloaded ? t("sh.downloaded") : t("sh.download")}</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={sendToWhatsApp}
-                                disabled={!totalItems}
-                                className="col-span-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-green-700 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-1 sm:w-auto sm:rounded-full sm:px-5"
-                            >
-                                <span aria-hidden="true">{whatsappOpened ? "✓" : "↗"}</span>
-                                <span>{whatsappOpened ? t("sh.waOpened") : t("sh.waShare")}</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setClearError("");
-                                    setShowClearConfirm(true);
-                                }}
-                                className="col-span-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-bold text-red-600 shadow-sm transition hover:bg-red-100 active:scale-[0.98] sm:col-span-1 sm:w-auto sm:rounded-full sm:px-5"
-                            >
-                                <span aria-hidden="true">🗑️</span>
-                                <span>{t("sh.clearList")}</span>
-                            </button>
-                        </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setClearError("");
+                                        setShowClearConfirm(true);
+                                    }}
+                                    className="block w-full rounded-lg px-3 py-2 text-start text-sm text-red-600 hover:bg-red-50"
+                                >
+                                    {t("sh.clearList")}
+                                </button>
+                            </div>
+                        </details>
                     </section>
                 )}
 
-                <section className="mt-5 rounded-3xl border border-zinc-100 bg-white p-4 shadow-sm sm:p-5">
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
-                        {t("sh.addItem")}
-                    </p>
-
-                    <div className="mt-3 grid gap-2.5 sm:grid-cols-[2fr_1fr_1fr_auto]">
+                <section className="mt-3 rounded-2xl border border-zinc-100 bg-white p-3 shadow-sm sm:p-4">
+                    <div className="grid gap-2.5 sm:grid-cols-[2fr_1fr_1fr_auto]">
                         <input
                             value={newItemName}
                             onChange={(event) =>
@@ -1648,7 +1631,7 @@ export default function ShoppingListPage() {
                             onKeyDown={(event) => {
                                 if (event.key === "Enter") addCustomItem();
                             }}
-                            placeholder={t("sh.phPrice")}
+                            placeholder={t("sh.phPrice", { c: listMarket.symbol })}
                             className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
                         />
 
@@ -1656,7 +1639,7 @@ export default function ShoppingListPage() {
                             type="button"
                             onClick={addCustomItem}
                             disabled={!newItemName.trim()}
-                            className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-orange-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                            className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             + Add
                         </button>
@@ -1664,7 +1647,7 @@ export default function ShoppingListPage() {
                 </section>
 
                 {totalItems > 0 && (
-                    <section className="mt-5 rounded-3xl border border-zinc-100 bg-white p-4 shadow-sm sm:p-5">
+                    <section className="mt-3 rounded-2xl border border-zinc-100 bg-white p-3 shadow-sm sm:p-4">
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             <div className="relative w-full lg:max-w-sm">
                                 <span
@@ -1731,6 +1714,14 @@ export default function ShoppingListPage() {
                             </div>
                         </div>
 
+                        <details
+                            className="group mt-3"
+                            open={categoryFilter !== "All" || favoritesOnly}
+                        >
+                            <summary className="cursor-pointer list-none text-xs font-semibold text-zinc-600 marker:hidden hover:text-zinc-900">
+                                {t("ui.filters")} ▾
+                            </summary>
+
                         <div className="-mx-1 mt-3 flex items-center gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
                             <button
                                 type="button"
@@ -1789,52 +1780,36 @@ export default function ShoppingListPage() {
                                 </button>
                             )}
                         </div>
+                        </details>
                     </section>
                 )}
 
                 {ingredientItems.length > 0 ? (
-                    <section className="mt-5 overflow-hidden rounded-3xl border border-zinc-100 bg-white shadow-lg">
-                        <div className="flex flex-col gap-2 border-b border-zinc-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
-                            <div>
-                                <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
-                                    {t("sh.smart")}
-                                </p>
-                                <h2 className="mt-1 text-2xl font-bold">
-                                    {t("sh.needBuy")}
-                                </h2>
-                            </div>
+                    <section className="mt-3 overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-sm">
+                        <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 text-sm text-zinc-500 sm:px-6">
+                            <p>
+                                {visibleItems.length} of {totalItems} shown
+                            </p>
 
-                            <div className="text-sm text-zinc-500 sm:text-right">
-                                <p>
-                                    {visibleItems.length} of {totalItems} shown
-                                </p>
-                                <p className="mt-1 font-semibold text-green-600">
-                                    Rs. {remainingCost.toLocaleString()}{" "}
-                                    <span className="font-medium text-zinc-400">
-                                        remaining of Rs.{" "}
-                                        {totalCost.toLocaleString()}
-                                    </span>
-                                </p>
-                                {groupedVisibleItems.length > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setCollapsedCategories(
-                                                collapsedCategories.length > 0
-                                                    ? []
-                                                    : groupedVisibleItems.map(
-                                                        (group) => group.category
-                                                    )
-                                            )
-                                        }
-                                        className="mt-2 text-xs font-bold text-orange-600 hover:text-orange-700"
-                                    >
-                                        {collapsedCategories.length > 0
-                                            ? t("sh.expand")
-                                            : t("sh.collapse")}
-                                    </button>
-                                )}
-                            </div>
+                            {groupedVisibleItems.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setCollapsedCategories(
+                                            collapsedCategories.length > 0
+                                                ? []
+                                                : groupedVisibleItems.map(
+                                                    (group) => group.category
+                                                )
+                                        )
+                                    }
+                                    className="text-xs font-semibold text-orange-700 hover:text-orange-800"
+                                >
+                                    {collapsedCategories.length > 0
+                                        ? t("sh.expand")
+                                        : t("sh.collapse")}
+                                </button>
+                            )}
                         </div>
 
                         {visibleItems.length > 0 ? (
@@ -1864,17 +1839,14 @@ export default function ShoppingListPage() {
                                                     {items.length}
                                                 </span>
                                                 <span className="ml-auto text-xs font-semibold text-zinc-500">
-                                                    Rs.{" "}
-                                                    {items
-                                                        .reduce(
+                                                    {formatAmount(
+                                                        items.reduce(
                                                             (sum, entry) =>
-                                                                sum +
-                                                                (getEffectiveCost(
-                                                                    entry
-                                                                ) ?? 0),
+                                                                sum + (getEffectiveCost(entry) ?? 0),
                                                             0
-                                                        )
-                                                        .toLocaleString()}
+                                                        ),
+                                                        listCurrency
+                                                    )}
                                                 </span>
                                                 <span
                                                     aria-hidden="true"
@@ -1896,10 +1868,6 @@ export default function ShoppingListPage() {
                                                 const isFavorite =
                                                     favoriteItems.includes(
                                                         item.id
-                                                    );
-                                                const category =
-                                                    getCategory(
-                                                        item.name
                                                     );
                                                 const isCustom =
                                                     customItems.some(
@@ -1942,10 +1910,6 @@ export default function ShoppingListPage() {
                                                                         item.name
                                                                     }
                                                                 </p>
-
-                                                                <span className="rounded-full bg-zinc-100 px-2 py-1 text-[10px] font-bold text-zinc-500">
-                                                                    {label("cat", category)}
-                                                                </span>
 
                                                                 {isCustom && (
                                                                     <span className="rounded-full bg-orange-100 px-2 py-1 text-[10px] font-bold text-orange-700">
@@ -2047,9 +2011,9 @@ export default function ShoppingListPage() {
                                                                         item.id
                                                                     )
                                                                 }
-                                                                className={`rounded-lg px-2 py-1 text-lg transition ${isFavorite
-                                                                        ? "bg-yellow-50 text-yellow-500"
-                                                                        : "bg-zinc-50 text-zinc-300 hover:text-yellow-500"
+                                                                className={`px-1 text-lg transition ${isFavorite
+                                                                        ? "text-yellow-500"
+                                                                        : "text-zinc-300 hover:text-yellow-500"
                                                                     }`}
                                                                 aria-label={
                                                                     isFavorite
@@ -2066,7 +2030,7 @@ export default function ShoppingListPage() {
                                                                 {editingPriceId === item.id ? (
                                                                     <div className="flex flex-col items-end gap-2">
                                                                         <div className="flex items-center gap-2">
-                                                                            <span className="text-xs font-semibold text-zinc-400">Rs.</span>
+                                                                            <span className="text-xs font-semibold text-zinc-400">{listMarket.symbol}</span>
                                                                             <input
                                                                                 autoFocus
                                                                                 inputMode="decimal"
@@ -2108,7 +2072,7 @@ export default function ShoppingListPage() {
                                                                                         : "text-green-600"
                                                                                     }`}
                                                                             >
-                                                                                Rs. {getEffectiveCost(item)?.toLocaleString()}
+                                                                                {formatAmount(getEffectiveCost(item) ?? 0, listCurrency)}
                                                                             </p>
                                                                         ) : (
                                                                             <p className="pt-1 text-xs text-zinc-400">
@@ -2119,9 +2083,9 @@ export default function ShoppingListPage() {
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => startEditPrice(item)}
-                                                                            className="mt-1 rounded-lg bg-orange-50 px-2.5 py-1.5 text-[11px] font-bold text-orange-700 hover:bg-orange-100"
+                                                                            className="mt-1 text-[11px] font-semibold text-orange-700 hover:underline"
                                                                         >
-                                                                            ✏️ {manualPrices[item.id] !== undefined
+                                                                            {manualPrices[item.id] !== undefined
                                                                     ? t("sh.myPrice")
                                                                     : t("sh.addPrice")}
                                                                         </button>
@@ -2178,7 +2142,7 @@ export default function ShoppingListPage() {
                         )}
                     </section>
                 ) : (
-                    <section className="mt-5 rounded-3xl border border-zinc-100 bg-white p-10 text-center shadow-lg">
+                    <section className="mt-5 rounded-2xl border border-zinc-100 bg-white p-8 text-center shadow-sm">
                         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-50 text-3xl">
                             🛒
                         </div>
@@ -2192,13 +2156,13 @@ export default function ShoppingListPage() {
                         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                             <a
                                 href="/planner"
-                                className="rounded-full bg-orange-600 px-6 py-3 font-bold text-white shadow-md hover:bg-orange-700"
+                                className="rounded-xl bg-orange-600 px-6 py-3 font-semibold text-white hover:bg-orange-700"
                             >
                                 {t("sh.createPlan")}
                             </a>
                             <a
                                 href="/weekly-plan"
-                                className="rounded-full border border-indigo-200 bg-white px-6 py-3 font-bold text-indigo-600 hover:bg-indigo-50"
+                                className="rounded-xl border border-zinc-300 bg-white px-6 py-3 font-semibold text-zinc-800 hover:bg-zinc-50"
                             >
                                 {t("sh.createWeekly")}
                             </a>
@@ -2224,7 +2188,9 @@ export default function ShoppingListPage() {
                                     {t("sh.done", { a: purchasedItems, b: totalItems })}
                                 </span>
                                 <span className="truncate font-semibold text-green-600">
-                                    {t("sh.left", { n: remainingCost.toLocaleString() })}
+                                    {t("sh.left", {
+                                n: formatAmount(remainingCost, listCurrency),
+                            })}
                                 </span>
                             </div>
 
@@ -2325,7 +2291,7 @@ export default function ShoppingListPage() {
                             {[
                                 [t("sh.items"), String(totalItems)],
                                 [t("sh.checked"), String(purchasedItems)],
-                                [t("sh.value"), `Rs. ${totalCost.toLocaleString()}`],
+                                [t("sh.value"), formatAmount(totalCost, listCurrency)],
                             ].map(([label, value]) => (
                                 <div
                                     key={label}

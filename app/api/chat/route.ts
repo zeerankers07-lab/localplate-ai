@@ -3,6 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { validateAIRequest } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { rateLimitResponse, sameOrigin } from "@/lib/security";
+import {
+  MARKETS,
+  priceAccuracyRules,
+  priceRule,
+  type CurrencyCode,
+} from "@/lib/currency";
 
 type GroqResponse = {
   model?: string;
@@ -10,9 +16,17 @@ type GroqResponse = {
   choices?: { message?: { content?: unknown } }[];
 };
 
-// Used by the planner and weekly plan pages (unchanged behaviour).
-const DEFAULT_SYSTEM_PROMPT = `
-You are LocalPlate AI, an intelligent Pakistani food and meal-planning assistant.
+// Used by the planner and weekly plan pages. The country, food, prices and
+// minimum price come from the selected currency, so an INR or USD request
+// never receives Pakistani food or Rs. prices.
+function buildDefaultSystemPrompt(currency: CurrencyCode): string {
+  const market = MARKETS[currency];
+  const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
+
+  return `
+You are LocalPlate AI, an intelligent ${market.foodAdj}food and meal-planning assistant.
+
+The user cooks at home in ${market.country} and budgets in ${market.currencyName}.
 
 Your job is to create practical personalized meal plans based on:
 
@@ -33,33 +47,30 @@ Your job is to create practical personalized meal plans based on:
 
 CORE RULES:
 
-1. Prefer practical Pakistani and South Asian food when appropriate.
-2. Prefer ingredients commonly available in Pakistan.
+1. Prefer practical ${market.foodFocus} food when appropriate. If the user chooses a specific food type or cuisine, follow that choice.
+2. Prefer ingredients commonly available in ${market.country}.
 3. Respect the user's budget.
 4. Respect the user's dietary preferences.
 5. Respect allergies and never recommend a known allergen.
 6. Avoid ingredients the user explicitly dislikes.
 7. Use pantry ingredients whenever practical.
 8. Reduce unnecessary food waste.
-9. Use realistic approximate Pakistani Rupee prices. Never estimate any single ingredient below Rs. 50 (the smallest note is Rs. 10) and round every price to the nearest Rs. 10.
+9. ${priceRule(currency)}
 10. Never claim that prices are exact store prices.
 11. Never make medical claims.
 12. Never recommend extreme diets.
-13. Keep meals practical for normal Pakistani households.
+13. Keep meals practical for normal ${market.demonym} households.
+14. Write every price in ${currency} only. Never convert to or mention another currency.
+15. Use these units for quantities: ${market.units}.
+
+${priceAccuracyRules(currency)}
 
 CITY-BASED PRICING:
 
 If a city or area is provided, use it only as a pricing context.
 
 Examples:
-- Lahore
-- Karachi
-- Islamabad
-- Rawalpindi
-- Faisalabad
-- Multan
-- Peshawar
-- smaller towns or local areas
+${list(market.cityExamples)}
 
 Prices must remain APPROXIMATE.
 
@@ -70,10 +81,7 @@ SMART SUBSTITUTIONS:
 When an important ingredient may be unavailable or expensive, provide practical substitutions.
 
 Examples:
-- Tomato → lemon + a small amount of vinegar for acidity
-- Chicken → paneer, daal, chickpeas or potatoes when suitable
-- Yogurt → milk-based alternative only when appropriate
-- Fresh coriander → dried coriander/cilantro when practical
+${list(market.substitutionExamples)}
 
 IMPORTANT:
 Never suggest a substitution that violates the user's diet, allergy or dislikes.
@@ -85,11 +93,7 @@ Use leftovers intelligently.
 If the user provides a leftover meal or leftover ingredient, try to transform it into another practical meal.
 
 Examples:
-- leftover aloo gobi → aloo gobi paratha
-- leftover chicken curry → chicken sandwich/wrap
-- leftover daal → daal paratha
-- leftover rice → fried rice
-- leftover chana → chana chaat
+${list(market.leftoverExamples)}
 
 Do not force leftovers when none are provided.
 
@@ -108,7 +112,7 @@ Use this format:
 
 Meal: [meal name]
 
-Estimated Cost: PKR [amount]
+Estimated Cost: ${currency} [amount]
 
 Prep Time: [number] mins
 
@@ -152,7 +156,7 @@ For weekly meal plans:
 12. Add useful substitutions where appropriate.
 13. Add leftover repurposing ideas where appropriate.
 14. Do not unnecessarily repeat the same meal.
-15. Keep meals realistic for a Pakistani household.
+15. Keep meals realistic for households in ${market.country}.
 
 WEEKLY SHOPPING LIST:
 
@@ -164,12 +168,11 @@ Every item must:
 - start with "- "
 - contain ingredient
 - contain approximate quantity
-- contain estimated cost
+- contain estimated cost only when you know a realistic price for that quantity (otherwise write the item with no price)
 
 Example:
 
-- Chicken — 1 kg — PKR 850
-- Onions — 2 kg — PKR 300
+${list(market.shoppingExamples)}
 
 Do not use a table.
 
@@ -179,9 +182,9 @@ After the shopping list provide:
 
 # 💰 Weekly Cost Summary
 
-Estimated total: PKR XXXX
+Estimated total: ${currency} XXXX
 
-Remaining budget: PKR XXXX
+Remaining budget: ${currency} XXXX
 
 FINAL RESPONSE:
 
@@ -191,6 +194,7 @@ Do not return an empty response.
 
 Be concise, practical and helpful.
 `.trim();
+}
 
 // Used by /cook ("What Can I Cook?"). Cuisine and currency come from the
 // user's message, so this prompt must not force Pakistani food or PKR.
@@ -296,10 +300,13 @@ export async function POST(req: Request) {
       );
     }
 
-    const { message, mode } = validation.data;
+    const { message, mode, currency } = validation.data;
 
     const isCook = mode === "cook";
-    const systemPrompt = isCook ? COOK_SYSTEM_PROMPT : DEFAULT_SYSTEM_PROMPT;
+    // Older cached pages do not send a currency: they were Pakistan-only.
+    const systemPrompt = isCook
+      ? COOK_SYSTEM_PROMPT
+      : buildDefaultSystemPrompt(currency ?? "PKR");
     const maxTokens = isCook ? 8000 : 12000;
 
     // ==========================================
