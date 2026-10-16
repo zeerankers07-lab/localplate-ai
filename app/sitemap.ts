@@ -1,63 +1,54 @@
 import type { MetadataRoute } from "next";
+import { RECIPE_PAGES, RECIPES_UPDATED } from "@/lib/seoPages";
+import { LEGAL_UPDATED, SITE_URL } from "@/lib/site";
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
+// Only public pages that should appear in search results.
+// Private pages (planner, weekly plan, saved plans, shopping list,
+// profile, login) are left out on purpose.
 export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date();
+  const recipesDate = new Date(RECIPES_UPDATED);
+  const legalDate = new Date(LEGAL_UPDATED);
 
   return [
     {
-      url: siteUrl,
-      lastModified: now,
+      url: SITE_URL,
+      lastModified: recipesDate,
       changeFrequency: "weekly",
       priority: 1,
     },
     {
-      url: `${siteUrl}/planner`,
-      lastModified: now,
-      changeFrequency: "weekly",
-      priority: 0.9,
-    },
-    {
-      url: `${siteUrl}/cook`,
-      lastModified: now,
-      changeFrequency: "weekly",
-      priority: 0.9,
-    },
-    {
-      url: `${siteUrl}/weekly-plan`,
-      lastModified: now,
-      changeFrequency: "weekly",
-      priority: 0.9,
-    },
-    {
-      url: `${siteUrl}/saved-plans`,
-      lastModified: now,
+      url: `${SITE_URL}/cook`,
+      lastModified: recipesDate,
       changeFrequency: "monthly",
-      priority: 0.4,
+      priority: 0.9,
     },
     {
-      url: `${siteUrl}/shopping-list`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.5,
+      url: `${SITE_URL}/recipes`,
+      lastModified: recipesDate,
+      changeFrequency: "weekly",
+      priority: 0.8,
     },
+    ...RECIPE_PAGES.map((page) => ({
+      url: `${SITE_URL}/recipes/${page.slug}`,
+      lastModified: recipesDate,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
     {
-      url: `${siteUrl}/privacy`,
-      lastModified: now,
+      url: `${SITE_URL}/privacy`,
+      lastModified: Number.isNaN(legalDate.getTime()) ? recipesDate : legalDate,
       changeFrequency: "yearly",
       priority: 0.3,
     },
     {
-      url: `${siteUrl}/terms`,
-      lastModified: now,
+      url: `${SITE_URL}/terms`,
+      lastModified: Number.isNaN(legalDate.getTime()) ? recipesDate : legalDate,
       changeFrequency: "yearly",
       priority: 0.3,
     },
     {
-      url: `${siteUrl}/contact`,
-      lastModified: now,
+      url: `${SITE_URL}/contact`,
+      lastModified: recipesDate,
       changeFrequency: "yearly",
       priority: 0.3,
     },

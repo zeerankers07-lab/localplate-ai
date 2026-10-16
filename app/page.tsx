@@ -4,6 +4,7 @@ import Link from "next/link";
 import QuickStart from "./components/QuickStart";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/translations";
+import { RECIPE_PAGES } from "@/lib/seoPages";
 
 const ICON_PATHS = {
   calendar: "M4 6h16v14H4zM4 10h16M8 3v4M16 3v4",
@@ -161,6 +162,38 @@ export default function Home() {
           ))}
         </div>
 
+        <section className="mt-12" aria-labelledby="home-ideas">
+          <div className="flex items-end justify-between gap-3">
+            <h2 id="home-ideas" className="text-lg font-semibold">
+              {t("home.ideas")}
+            </h2>
+
+            <Link
+              href="/recipes"
+              className="text-sm font-medium text-orange-700 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-orange-500"
+            >
+              {t("home.ideasAll")}
+            </Link>
+          </div>
+
+          <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+            {RECIPE_PAGES.map((page) => (
+              <li key={page.slug}>
+                <Link
+                  href={`/recipes/${page.slug}`}
+                  className="block h-full rounded-xl border border-zinc-200 bg-white p-4 outline-none transition hover:border-orange-300 hover:shadow-md focus-visible:ring-2 focus-visible:ring-orange-500"
+                >
+                  <span className="block text-sm font-semibold">
+                    {page.h1}
+                  </span>
+                  <span className="mt-1 block text-xs text-zinc-500">
+                    {page.short}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       </div>
     </main>
   );

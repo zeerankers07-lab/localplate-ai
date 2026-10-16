@@ -4,18 +4,49 @@ import Navbar from "./components/Navbar";
 import FeedbackWidget from "./components/FeedbackWidget";
 import Footer from "./components/Footer";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const siteDescription =
+  "LocalPlate AI creates personalized meal plans based on your taste, budget, diet, goals, pantry ingredients and local food options.";
+
+// Structured data that helps Google understand the site.
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      url: SITE_URL,
+      name: SITE_NAME,
+      description: siteDescription,
+      inLanguage: "en",
+    },
+    {
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
+      name: SITE_NAME,
+      url: SITE_URL,
+      logo: `${SITE_URL}/icon.png`,
+    },
+    {
+      "@type": "WebApplication",
+      name: SITE_NAME,
+      url: SITE_URL,
+      description: siteDescription,
+      applicationCategory: "LifestyleApplication",
+      operatingSystem: "Any",
+      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    },
+  ],
+};
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "LocalPlate AI | AI Meal Planner for Personalized Meals",
     template: "%s | LocalPlate AI",
   },
-  description:
-    "LocalPlate AI creates personalized meal plans based on your taste, budget, diet, goals, pantry ingredients and local food options.",
+  description: siteDescription,
   keywords: [
     "AI meal planner",
     "meal planner",
@@ -31,8 +62,11 @@ export const metadata: Metadata = {
   authors: [{ name: "LocalPlate AI" }],
   creator: "LocalPlate AI",
   publisher: "LocalPlate AI",
-  alternates: {
-    canonical: "/",
+  // Each page sets its own canonical address, so none is set here.
+  // (A canonical set here would be inherited by every page.)
+  verification: {
+    // Paste the code from Google Search Console into this environment variable.
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
   },
   openGraph: {
     type: "website",
@@ -40,11 +74,10 @@ export const metadata: Metadata = {
     title: "LocalPlate AI | AI Meal Planner for Personalized Meals",
     description:
       "Create personalized, budget-friendly meal plans around your taste, diet, goals, pantry and local food options.",
-    url: "/",
     locale: "en_US",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "LocalPlate AI | AI Meal Planner",
     description:
       "Create personalized, budget-friendly meal plans with LocalPlate AI.",
@@ -70,6 +103,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-[#fffaf5] text-zinc-900 antialiased">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
+          }}
+        />
         <LanguageProvider>
           <Navbar />
           {children}

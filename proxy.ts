@@ -27,7 +27,35 @@ function isAdminEmail(email: string | undefined) {
   return admins.includes(email.toLowerCase());
 }
 
+// Public pages never need the login check. Skipping it avoids a network
+// call to Supabase on every visit, which makes these pages (and Google's
+// crawler) faster.
+const publicPaths = [
+  "/cook",
+  "/recipes",
+  "/privacy",
+  "/terms",
+  "/contact",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/opengraph-image",
+  "/twitter-image",
+];
+
+function isPublicPath(pathname: string) {
+  return (
+    pathname === "/" ||
+    publicPaths.some(
+      (path) => pathname === path || pathname.startsWith(`${path}/`)
+    )
+  );
+}
+
 export async function proxy(request: NextRequest) {
+  if (isPublicPath(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+
   let response = NextResponse.next({ request });
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

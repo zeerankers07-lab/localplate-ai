@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/translations";
 
 const LINKS: { href: string; label: TranslationKey }[] = [
+  { href: "/recipes", label: "footer.recipes" },
   { href: "/privacy", label: "footer.privacy" },
   { href: "/terms", label: "footer.terms" },
   { href: "/contact", label: "footer.contact" },

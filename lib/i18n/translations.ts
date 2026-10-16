@@ -696,6 +696,9 @@ export const en = {
   "ui.extras": "Tips and extras",
   "ui.moreActions": "More",
   "ui.filters": "Filters",
+  "home.ideas": "Popular recipe ideas",
+  "home.ideasAll": "All recipe ideas",
+  "footer.recipes": "Recipes",
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -1386,6 +1389,9 @@ const ur: Dictionary = {
   "ui.extras": "مشورے اور اضافی",
   "ui.moreActions": "مزید",
   "ui.filters": "فلٹر",
+  "home.ideas": "مقبول ریسیپی آئیڈیاز",
+  "home.ideasAll": "تمام ریسیپی آئیڈیاز",
+  "footer.recipes": "ریسیپی",
 };
 
 const hi: Dictionary = {
@@ -2071,6 +2077,9 @@ const hi: Dictionary = {
   "ui.extras": "सुझाव और अतिरिक्त",
   "ui.moreActions": "और",
   "ui.filters": "फ़िल्टर",
+  "home.ideas": "लोकप्रिय रेसिपी आइडिया",
+  "home.ideasAll": "सभी रेसिपी आइडिया",
+  "footer.recipes": "रेसिपी",
 };
 
 export const DICTIONARIES: Record<Lang, Dictionary> = {
