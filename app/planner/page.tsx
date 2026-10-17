@@ -152,11 +152,10 @@ function ChipGroup({
             type="button"
             onClick={() => onChange(option)}
             aria-pressed={active}
-            className={`flex min-h-12 items-center justify-center rounded-xl border px-3 py-2 text-center text-sm font-semibold leading-tight transition active:scale-95 ${
-              active
-                ? "border-orange-600 bg-orange-600 text-white shadow-sm shadow-orange-200"
-                : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400 hover:bg-orange-50"
-            }`}
+            className={`flex min-h-12 items-center justify-center rounded-xl border px-3 py-2 text-center text-sm font-semibold leading-tight transition active:scale-95 ${active
+              ? "border-orange-600 bg-orange-600 text-white shadow-sm shadow-orange-200"
+              : "border-zinc-200 bg-white text-zinc-700 hover:border-orange-400 hover:bg-orange-50"
+              }`}
           >
             {format ? format(option) : option}
           </button>
@@ -771,62 +770,138 @@ The meal must be realistic for a household in ${market.country}, practical to co
   return (
     <main className="min-h-screen bg-[#fffaf5] px-4 pb-32 pt-6 text-zinc-900 md:px-8 md:pt-8 lg:pb-16">
       {/* Sticky top bar */}
-      <header className="sticky top-0 z-30 -mx-4 -mt-6 mb-6 border-b border-orange-100 bg-[#fffaf5]/90 px-4 py-3 backdrop-blur md:-mx-8 md:-mt-8 md:px-8">
+      <header className="sticky top-[var(--nav-h,0px)] z-30 -mx-4 -mt-6 mb-5 border-b border-orange-100 bg-[#fffaf5]/90 px-4 py-2.5 backdrop-blur sm:mb-6 sm:py-3 md:-mx-8 md:-mt-8 md:px-8">
         <div className="mx-auto flex max-w-6xl items-center gap-2.5 sm:gap-3">
+          {/* Back */}
           <button
             type="button"
             onClick={handleBack}
             aria-label={t("sp.goBack")}
-            className="group inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-orange-200 bg-white pl-3 pr-4 text-sm font-bold text-orange-700 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 active:scale-95"
+            className="group inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 bg-white ps-1.5 pe-4 text-sm font-semibold text-zinc-800 shadow-sm outline-none transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95"
           >
             <span
               aria-hidden="true"
-              className="text-lg leading-none transition-transform duration-200 group-hover:-translate-x-0.5"
+              className="flex size-8 items-center justify-center rounded-full bg-orange-100 text-orange-700 transition group-hover:bg-orange-200"
             >
-              ←
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-4 transition-transform duration-200 ltr:group-hover:-translate-x-0.5 rtl:rotate-180"
+              >
+                <path d="m15 18-6-6 6-6" />
+              </svg>
             </span>
             <span>{t("sp.back")}</span>
           </button>
 
-          <div className="min-w-0 flex-1">
+          {/* Desktop: title + summary (on mobile it is shown below, in the page title) */}
+          <div className="hidden min-w-0 flex-1 sm:block">
             <p className="truncate text-sm font-bold text-zinc-900">
               {t("pl.aiPlanner")}
             </p>
             <p className="truncate text-xs text-zinc-500">
-              {budget ? formatAmount(Number(budget), currency) : "—"} ·{" "}
-              {label("opt", mealType)} ·{" "}
+              {budget ? formatAmount(Number(budget), currency) : "—"} · {label("opt", mealType)} ·{" "}
               {t("pl.people", { n: servings })}
             </p>
           </div>
 
+          {/* Desktop links (unchanged) */}
           <Link
             href="/weekly-plan"
             aria-label={t("nav.weekly")}
-            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-indigo-200 bg-white px-3.5 text-sm font-bold text-indigo-700 shadow-sm transition hover:bg-indigo-50 active:scale-95 sm:px-4"
+            className="hidden h-11 shrink-0 items-center gap-2 rounded-full border border-indigo-200 bg-white px-4 text-sm font-bold text-indigo-700 shadow-sm transition hover:bg-indigo-50 active:scale-95 sm:inline-flex"
           >
             <span aria-hidden="true">📅</span>
-            <span className="hidden sm:inline">Weekly Plan</span>
+            <span>Weekly Plan</span>
           </Link>
 
           <Link
             href="/saved-plans"
             aria-label={t("nav.saved")}
-            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-zinc-200 bg-white px-3.5 text-sm font-bold text-zinc-800 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 active:scale-95 sm:px-4"
+            className="hidden h-11 shrink-0 items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 text-sm font-bold text-zinc-800 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 active:scale-95 sm:inline-flex"
           >
             <span aria-hidden="true">💾</span>
-            <span className="hidden sm:inline">Saved Plans</span>
+            <span>Saved Plans</span>
           </Link>
+
+          {/* Mobile: compact icon buttons */}
+          <div className="ms-auto inline-flex items-center rounded-full border border-zinc-200 bg-white p-0.5 shadow-sm sm:hidden">
+            <Link
+              href="/weekly-plan"
+              aria-label={t("nav.weekly")}
+              title={t("nav.weekly")}
+              className="flex size-10 items-center justify-center rounded-full text-indigo-600 outline-none transition hover:bg-indigo-50 focus-visible:ring-2 focus-visible:ring-orange-500 active:scale-95"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-5"
+                aria-hidden="true"
+              >
+                <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+                <path d="M8 3v4M16 3v4M3.5 10h17" />
+              </svg>
+            </Link>
+
+            <span aria-hidden="true" className="h-5 w-px bg-zinc-200" />
+
+            <Link
+              href="/saved-plans"
+              aria-label={t("nav.saved")}
+              title={t("nav.saved")}
+              className="flex size-10 items-center justify-center rounded-full text-zinc-700 outline-none transition hover:bg-orange-50 hover:text-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500 active:scale-95"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-5"
+                aria-hidden="true"
+              >
+                <path d="M7 4.5h10a1 1 0 0 1 1 1V21l-6-4-6 4V5.5a1 1 0 0 1 1-1z" />
+              </svg>
+            </Link>
+          </div>
         </div>
       </header>
-
       <div className="mx-auto max-w-6xl">
         {/* Title */}
         <section>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          {/* Mobile: AI Meal Planner + live summary */}
+          <div className="sm:hidden">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {t("pl.aiPlanner")}
+            </h1>
+
+            <ul className="mt-3 flex flex-wrap gap-2">
+              <li className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700">
+                {budget ? formatAmount(Number(budget), currency) : "—"}
+              </li>
+              <li className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700">
+                {label("opt", mealType)}
+              </li>
+              <li className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700">
+                {t("pl.people", { n: servings })}
+              </li>
+            </ul>
+          </div>
+
+          {/* Desktop: unchanged */}
+          <h1 className="hidden text-3xl font-semibold tracking-tight sm:block">
             {t("pl.title")}
           </h1>
         </section>
-
         <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_20rem] lg:items-start">
           {/* Form */}
           <form
@@ -949,7 +1024,7 @@ The meal must be realistic for a household in ${market.country}, practical to co
                   <FieldLabel>{t("pl.qSpice")}</FieldLabel>
                   <ChipGroup
                     options={SPICE_LEVELS}
-                  format={(option) => label("opt", option)}
+                    format={(option) => label("opt", option)}
                     value={spiceLevel}
                     onChange={setSpiceLevel}
                   />
@@ -978,11 +1053,10 @@ The meal must be realistic for a household in ${market.country}, practical to co
                           setPantry((current) => toggleListItem(current, item))
                         }
                         aria-pressed={active}
-                        className={`min-h-10 rounded-full border px-3.5 text-sm font-semibold transition active:scale-95 ${
-                          active
-                            ? "border-green-600 bg-green-600 text-white"
-                            : "border-zinc-200 bg-white text-zinc-600 hover:border-green-300 hover:bg-green-50"
-                        }`}
+                        className={`min-h-10 rounded-full border px-3.5 text-sm font-semibold transition active:scale-95 ${active
+                          ? "border-green-600 bg-green-600 text-white"
+                          : "border-zinc-200 bg-white text-zinc-600 hover:border-green-300 hover:bg-green-50"
+                          }`}
                       >
                         {active ? "✓ " : "+ "}
                         {label("ing", item)}
@@ -1020,11 +1094,10 @@ The meal must be realistic for a household in ${market.country}, practical to co
                           )
                         }
                         aria-pressed={active}
-                        className={`min-h-10 rounded-full border px-3.5 text-sm font-semibold transition active:scale-95 ${
-                          active
-                            ? "border-red-500 bg-red-500 text-white"
-                            : "border-zinc-200 bg-white text-zinc-600 hover:border-red-300 hover:bg-red-50"
-                        }`}
+                        className={`min-h-10 rounded-full border px-3.5 text-sm font-semibold transition active:scale-95 ${active
+                          ? "border-red-500 bg-red-500 text-white"
+                          : "border-zinc-200 bg-white text-zinc-600 hover:border-red-300 hover:bg-red-50"
+                          }`}
                       >
                         {active ? "✓ " : "+ "}
                         {label("opt", item)}
@@ -1068,9 +1141,8 @@ The meal must be realistic for a household in ${market.country}, practical to co
                 </span>
                 <span
                   aria-hidden="true"
-                  className={`text-zinc-400 transition-transform duration-200 ${
-                    showMore ? "rotate-180" : ""
-                  }`}
+                  className={`text-zinc-400 transition-transform duration-200 ${showMore ? "rotate-180" : ""
+                    }`}
                 >
                   ▾
                 </span>
@@ -1168,11 +1240,10 @@ The meal must be realistic for a household in ${market.country}, practical to co
                   🧺 {pantryCount} pantry items
                 </span>
                 <span
-                  className={`rounded-full px-3 py-1.5 font-semibold ${
-                    allergies.trim()
-                      ? "bg-red-50 text-red-700"
-                      : "bg-zinc-100 text-zinc-500"
-                  }`}
+                  className={`rounded-full px-3 py-1.5 font-semibold ${allergies.trim()
+                    ? "bg-red-50 text-red-700"
+                    : "bg-zinc-100 text-zinc-500"
+                    }`}
                 >
                   🚫 {allergies.trim() || t("pl.noAllergies")}
                 </span>
@@ -1239,33 +1310,32 @@ The meal must be realistic for a household in ${market.country}, practical to co
               {estimatedCost !== null &&
                 costPercent !== null &&
                 planCurrency === currency && (
-                <div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-zinc-500">
-                      {t("cook.estCost")}
-                    </span>
-                    <span className="font-semibold text-zinc-900">
-                      {formatAmount(estimatedCost, currency)} /{" "}
-                      {formatAmount(budgetNumber, currency)}
-                    </span>
-                  </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        estimatedCost > budgetNumber
+                  <div>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-zinc-500">
+                        {t("cook.estCost")}
+                      </span>
+                      <span className="font-semibold text-zinc-900">
+                        {formatAmount(estimatedCost, currency)} /{" "}
+                        {formatAmount(budgetNumber, currency)}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${estimatedCost > budgetNumber
                           ? "bg-red-500"
                           : "bg-green-600"
-                      }`}
-                      style={{ width: `${costPercent}%` }}
-                    />
+                          }`}
+                        style={{ width: `${costPercent}%` }}
+                      />
+                    </div>
+                    {estimatedCost > budgetNumber && (
+                      <p className="mt-2 text-xs font-medium text-red-600">
+                        {t("pl.over")}
+                      </p>
+                    )}
                   </div>
-                  {estimatedCost > budgetNumber && (
-                    <p className="mt-2 text-xs font-medium text-red-600">
-                      {t("pl.over")}
-                    </p>
-                  )}
-                </div>
-              )}
+                )}
 
               {/* Markdown result */}
               <div className="mt-5 rounded-xl bg-[#fffaf5] p-4 sm:p-6">
@@ -1409,9 +1479,8 @@ The meal must be realistic for a household in ${market.country}, practical to co
         >
           <div
             key={toast.id}
-            className={`pl-sheet pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-xl ${
-              toast.tone === "error" ? "bg-red-600" : "bg-zinc-900"
-            }`}
+            className={`pl-sheet pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-xl ${toast.tone === "error" ? "bg-red-600" : "bg-zinc-900"
+              }`}
           >
             <span aria-hidden="true">
               {toast.tone === "error" ? "⚠️" : "✓"}

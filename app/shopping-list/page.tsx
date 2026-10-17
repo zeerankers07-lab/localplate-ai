@@ -14,6 +14,7 @@ import {
     toNumber,
     type CurrencyCode,
 } from "@/lib/currency";
+import { getPriceGuide } from "@/lib/priceGuide";
 
 type FilterMode = "all" | "remaining" | "purchased";
 
@@ -1451,24 +1452,36 @@ export default function ShoppingListPage() {
     return (
         <main className="min-h-screen bg-[#fffaf5] px-4 pb-28 pt-8 text-zinc-900 md:px-8 md:pb-10 md:pt-10">
             <div className="mx-auto max-w-7xl">
-                <header className="sticky top-0 z-30 -mx-4 -mt-8 mb-5 border-b border-orange-100 bg-[#fffaf5]/90 px-4 py-3 backdrop-blur md:-mx-8 md:-mt-10 md:px-8">
+                <header className="sticky top-[var(--nav-h,0px)] z-30 -mx-4 -mt-8 mb-4 border-b border-orange-100 bg-[#fffaf5]/90 px-4 py-2.5 backdrop-blur sm:mb-5 sm:py-3 md:-mx-8 md:-mt-10 md:px-8">
                     <div className="mx-auto flex max-w-7xl items-center gap-2.5 sm:gap-3">
+                        {/* Back */}
                         <button
                             type="button"
                             onClick={handleBack}
                             aria-label={t("sp.goBack")}
-                            className="group inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-orange-200 bg-white pl-3 pr-4 text-sm font-bold text-orange-700 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 active:scale-95"
+                            className="group inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 bg-white ps-1.5 pe-4 text-sm font-semibold text-zinc-800 shadow-sm outline-none transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95"
                         >
                             <span
                                 aria-hidden="true"
-                                className="text-lg leading-none transition-transform duration-200 group-hover:-translate-x-0.5"
+                                className="flex size-8 items-center justify-center rounded-full bg-orange-100 text-orange-700 transition group-hover:bg-orange-200"
                             >
-                                ←
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth={2.2}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="size-4 transition-transform duration-200 ltr:group-hover:-translate-x-0.5 rtl:rotate-180"
+                                >
+                                    <path d="m15 18-6-6 6-6" />
+                                </svg>
                             </span>
                             <span>{t("sp.back")}</span>
                         </button>
 
-                        <div className="min-w-0 flex-1">
+                        {/* Desktop: title + summary (on mobile the title is shown once, below) */}
+                        <div className="hidden min-w-0 flex-1 sm:block">
                             <p className="truncate text-sm font-bold text-zinc-900">
                                 {t("nav.shopping")}
                             </p>
@@ -1477,23 +1490,70 @@ export default function ShoppingListPage() {
                             </p>
                         </div>
 
+                        {/* Desktop links */}
                         <a
                             href="/weekly-plan"
                             aria-label={t("nav.weekly")}
-                            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-indigo-200 bg-white px-3.5 text-sm font-bold text-indigo-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50 active:scale-95 sm:px-4"
+                            className="hidden h-11 shrink-0 items-center gap-2 rounded-full border border-indigo-200 bg-white px-4 text-sm font-bold text-indigo-700 shadow-sm transition hover:bg-indigo-50 active:scale-95 sm:inline-flex"
                         >
                             <span aria-hidden="true">📅</span>
-                            <span className="hidden sm:inline">Weekly Plan</span>
+                            <span>Weekly Plan</span>
                         </a>
 
                         <a
                             href="/saved-plans"
                             aria-label={t("nav.saved")}
-                            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-zinc-200 bg-white px-3.5 text-sm font-bold text-zinc-800 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 active:scale-95 sm:px-4"
+                            className="hidden h-11 shrink-0 items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 text-sm font-bold text-zinc-800 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 active:scale-95 sm:inline-flex"
                         >
                             <span aria-hidden="true">💾</span>
-                            <span className="hidden sm:inline">Saved Plans</span>
+                            <span>Saved Plans</span>
                         </a>
+
+                        {/* Mobile: compact icon buttons (same as the planner) */}
+                        <div className="ms-auto inline-flex items-center rounded-full border border-zinc-200 bg-white p-0.5 shadow-sm sm:hidden">
+                            <a
+                                href="/weekly-plan"
+                                aria-label={t("nav.weekly")}
+                                title={t("nav.weekly")}
+                                className="flex size-10 items-center justify-center rounded-full text-indigo-600 outline-none transition hover:bg-indigo-50 focus-visible:ring-2 focus-visible:ring-orange-500 active:scale-95"
+                            >
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth={1.8}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="size-5"
+                                    aria-hidden="true"
+                                >
+                                    <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+                                    <path d="M8 3v4M16 3v4M3.5 10h17" />
+                                </svg>
+                            </a>
+
+                            <span aria-hidden="true" className="h-5 w-px bg-zinc-200" />
+
+                            <a
+                                href="/saved-plans"
+                                aria-label={t("nav.saved")}
+                                title={t("nav.saved")}
+                                className="flex size-10 items-center justify-center rounded-full text-zinc-700 outline-none transition hover:bg-orange-50 hover:text-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500 active:scale-95"
+                            >
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth={1.8}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="size-5"
+                                    aria-hidden="true"
+                                >
+                                    <path d="M7 4.5h10a1 1 0 0 1 1 1V21l-6-4-6 4V5.5a1 1 0 0 1 1-1z" />
+                                </svg>
+                            </a>
+                        </div>
                     </div>
                 </header>
 
@@ -1538,12 +1598,12 @@ export default function ShoppingListPage() {
                 </section>
 
                 {totalItems > 0 && (
-                    <section className="mt-3 flex flex-wrap items-center gap-2">
+                    <section className="mt-3 grid grid-cols-[1fr_1fr_auto] items-center gap-2 sm:flex sm:flex-wrap">
                         <button
                             type="button"
                             onClick={sendToWhatsApp}
                             disabled={!totalItems}
-                            className="h-11 rounded-xl bg-green-600 px-5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-4 text-sm font-bold text-white shadow-sm shadow-green-200 outline-none transition hover:bg-green-700 focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:px-5"
                         >
                             {whatsappOpened ? t("sh.waOpened") : t("sh.waShare")}
                         </button>
@@ -1552,17 +1612,17 @@ export default function ShoppingListPage() {
                             type="button"
                             onClick={copyShoppingList}
                             disabled={!totalItems}
-                            className="h-11 rounded-xl border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="inline-flex h-11 items-center justify-center rounded-full border border-zinc-200 bg-white px-4 text-sm font-bold text-zinc-800 shadow-sm outline-none transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:px-5"
                         >
                             {copied ? t("toast.copied") : t("sh.copyList")}
                         </button>
 
                         <details className="relative">
-                            <summary className="flex h-11 cursor-pointer list-none items-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 marker:hidden hover:bg-zinc-50">
+                            <summary className="flex h-11 cursor-pointer list-none items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 text-sm font-bold text-zinc-700 shadow-sm outline-none transition marker:hidden hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 active:scale-95 [&::-webkit-details-marker]:hidden">
                                 {t("ui.moreActions")} ▾
                             </summary>
 
-                            <div className="absolute start-0 top-full z-10 mt-2 w-56 rounded-xl bg-white p-1 shadow-lg ring-1 ring-zinc-200">
+                            <div className="absolute end-0 top-full z-20 mt-2 w-56 rounded-2xl bg-white p-1.5 shadow-xl ring-1 ring-zinc-200 sm:start-0 sm:end-auto">
                                 <button
                                     type="button"
                                     onClick={toggleAllItems}
@@ -1639,7 +1699,7 @@ export default function ShoppingListPage() {
                             type="button"
                             onClick={addCustomItem}
                             disabled={!newItemName.trim()}
-                            className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="inline-flex h-11 items-center justify-center rounded-full bg-orange-600 px-6 text-sm font-bold text-white shadow-sm shadow-orange-200 outline-none transition hover:bg-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             + Add
                         </button>
@@ -2106,7 +2166,7 @@ export default function ShoppingListPage() {
                                                                             item.id
                                                                         )
                                                                     }
-                                                                    className="rounded-lg bg-red-50 px-2 py-1 text-sm text-red-600 hover:bg-red-100"
+                                                                    className="flex size-9 items-center justify-center rounded-full bg-red-50 text-sm text-red-600 transition hover:bg-red-100 active:scale-95"
                                                                     aria-label={t("sh.delAria", { name: item.name })}
                                                                 >
                                                                     🗑️
@@ -2156,13 +2216,13 @@ export default function ShoppingListPage() {
                         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                             <a
                                 href="/planner"
-                                className="rounded-xl bg-orange-600 px-6 py-3 font-semibold text-white hover:bg-orange-700"
+                                className="inline-flex h-12 items-center justify-center rounded-full bg-orange-600 px-6 font-bold text-white shadow-sm shadow-orange-200 transition hover:bg-orange-700 active:scale-95"
                             >
                                 {t("sh.createPlan")}
                             </a>
                             <a
                                 href="/weekly-plan"
-                                className="rounded-xl border border-zinc-300 bg-white px-6 py-3 font-semibold text-zinc-800 hover:bg-zinc-50"
+                                className="inline-flex h-12 items-center justify-center rounded-full border border-zinc-200 bg-white px-6 font-bold text-zinc-800 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 active:scale-95"
                             >
                                 {t("sh.createWeekly")}
                             </a>
@@ -2173,6 +2233,9 @@ export default function ShoppingListPage() {
                 {ingredientItems.length > 0 && (
                     <p className="mt-5 text-center text-xs text-zinc-400">
                         {t("sh.priceNote")}
+                        <span className="mt-1 block text-[11px] text-zinc-400/80">
+                            {getPriceGuide(listCurrency).label}
+                        </span>
                     </p>
                 )}
 

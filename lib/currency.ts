@@ -3,6 +3,8 @@
 // prompts all agree on the symbol, the minimum price, the rounding, the usual
 // budget and the food of each market.
 
+import { getPriceGuide } from "./priceGuide";
+
 export type CurrencyCode = "PKR" | "INR" | "USD";
 
 export const CURRENCY_CODES: CurrencyCode[] = ["PKR", "INR", "USD"];
@@ -41,17 +43,7 @@ export type Market = {
   substitutionExamples: string[];
   leftoverExamples: string[];
   shoppingExamples: string[];
-  // Typical shop prices of everyday items, so the AI does not guess them.
-  priceGuide: string[];
 };
-
-// When the reference prices below were last checked. Prices move, so review
-// them every two or three months and update PRICE_GUIDE_DATE with them.
-// Sources (October 2026):
-// - Pakistan: Pakistan Bureau of Statistics weekly SPI, week ended 8 Oct 2026
-// - India: Department of Consumer Affairs retail prices and NECC egg rates
-// - USA: Bureau of Labor Statistics average prices, August 2026
-export const PRICE_GUIDE_DATE = "October 2026";
 
 export const MARKETS: Record<CurrencyCode, Market> = {
   PKR: {
@@ -100,19 +92,6 @@ export const MARKETS: Record<CurrencyCode, Market> = {
     shoppingExamples: [
       "Chicken — 1 kg — PKR 500",
       "Onions — 2 kg — PKR 380",
-    ],
-    priceGuide: [
-      "Eggs (farm): Rs. 25–35 each (about Rs. 300–420 per dozen)",
-      "Chicken (broiler, with bone): Rs. 420–600 per kg; boneless costs clearly more",
-      "Fresh milk: Rs. 200–240 per litre",
-      "Wheat flour (atta): Rs. 140–160 per kg",
-      "Rice (basmati): Rs. 220–350 per kg depending on quality",
-      "Sugar: Rs. 150–180 per kg",
-      "Onions: Rs. 130–220 per kg",
-      "Tomatoes: Rs. 120–180 per kg",
-      "Potatoes: Rs. 60–90 per kg",
-      "Daal per kg: chana Rs. 280–300, masoor Rs. 260–270, moong about Rs. 350, mash about Rs. 460",
-      "Cooking oil: Rs. 300–320 per litre",
     ],
   },
 
@@ -164,17 +143,6 @@ export const MARKETS: Record<CurrencyCode, Market> = {
       "Chicken — 1 kg — INR 240",
       "Onions — 2 kg — INR 100",
     ],
-    priceGuide: [
-      "Eggs: ₹6–8 each (about ₹70–95 per dozen)",
-      "Chicken (broiler): ₹200–280 per kg",
-      "Milk: ₹56–65 per litre",
-      "Wheat flour (atta): ₹38–45 per kg",
-      "Rice: ₹45–60 per kg",
-      "Onions: ₹40–60 per kg",
-      "Tomatoes: ₹35–60 per kg",
-      "Potatoes: ₹20–30 per kg",
-      "Dal per kg: toor ₹120–140, moong ₹110–130, masoor ₹90–100, chana dal ₹85–95",
-    ],
   },
 
   USD: {
@@ -221,14 +189,6 @@ export const MARKETS: Record<CurrencyCode, Market> = {
     shoppingExamples: [
       "Chicken breast — 2 lb — USD 8.40",
       "Eggs — 1 dozen — USD 2.25",
-    ],
-    priceGuide: [
-      "Eggs (large, Grade A): about $2.25 per dozen (about $0.19 each)",
-      "Chicken breast, boneless: about $4.20 per lb; whole chicken about $2.00 per lb; bone-in legs about $1.70 per lb",
-      "Ground beef: about $6.90 per lb",
-      "Whole milk: about $4.25 per gallon",
-      "White bread: about $1.80 per 1 lb loaf",
-      "White rice (long grain): about $1.10 per lb",
     ],
   },
 };
@@ -287,11 +247,12 @@ export function priceRule(code: CurrencyCode): string {
 // prices. A missing price is fine: customers add their own in the app.
 export function priceAccuracyRules(code: CurrencyCode): string {
   const market = MARKETS[code];
+  const guide = getPriceGuide(code);
 
   return `PRICE ACCURACY (very important):
 - A price must match the exact quantity written next to it. Work it out from the unit price: 4 eggs cost 4/12 of a dozen, not the price of a whole dozen, and 250 g costs a quarter of the per-kg price.
-- Typical shop prices in ${market.country} (${PRICE_GUIDE_DATE}). Use them for these items and stay close to them:
-${market.priceGuide.map((line) => `  - ${line}`).join("\n")}
+- Typical shop prices in ${market.country} (${guide.label}). Use them for these items and stay close to them:
+${guide.lines.map((line) => `  - ${line}`).join("\n")}${guide.note}
 - Only write a price when you are reasonably sure of a realistic price for that exact quantity. If you are not sure (an unusual, branded, imported or seasonal item, or an unclear quantity), leave the price out of that item completely. Do not guess, and do not write a placeholder such as "N/A" or "varies". Customers add missing prices themselves in the app.
 - A meal cost and any total count only the items that have a price. If a meal cannot be priced at all, leave out its cost line instead of guessing.`;
 }
