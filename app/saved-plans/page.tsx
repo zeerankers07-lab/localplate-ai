@@ -5,17 +5,6 @@ import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
-import {
-    detectCurrencyFromText,
-    formatAmount,
-    type CurrencyCode,
-} from "@/lib/currency";
-
-// Plans do not store a currency: it is read from the prices in the plan text.
-// Plans saved before multi-currency support were all in Pakistani rupees.
-function savedPlanCurrency(mealPlan: string): CurrencyCode {
-    return detectCurrencyFromText(mealPlan) ?? "PKR";
-}
 
 const PAGE_SIZE = 8;
 
@@ -280,7 +269,6 @@ export default function SavedPlansPage() {
                     "localplate_reuse_weekly_preferences",
                     JSON.stringify({
                         budget: plan.budget,
-                        currency: savedPlanCurrency(plan.mealPlan),
                         foodType: plan.foodType,
                         diet: plan.diet,
                         goal: plan.goal,
@@ -308,7 +296,6 @@ export default function SavedPlansPage() {
                 JSON.stringify({
                     foodType: plan.foodType,
                     budget: plan.budget,
-                    currency: savedPlanCurrency(plan.mealPlan),
                     mealType: plan.mealType,
                     diet: plan.diet,
                     time: plan.time,
@@ -506,24 +493,36 @@ export default function SavedPlansPage() {
     return (
         <main className="min-h-screen bg-[#fffaf5] px-4 pb-16 pt-6 text-zinc-900 md:px-8 md:pt-8">
             {/* Sticky top bar */}
-            <header className="sticky top-0 z-30 -mx-4 -mt-6 mb-6 border-b border-orange-100 bg-[#fffaf5]/90 px-4 py-3 backdrop-blur md:-mx-8 md:-mt-8 md:px-8">
+            <header className="sticky top-[var(--nav-h,0px)] z-30 -mx-4 -mt-6 mb-5 border-b border-orange-100 bg-[#fffaf5]/90 px-4 py-2.5 backdrop-blur sm:mb-6 sm:py-3 md:-mx-8 md:-mt-8 md:px-8">
                 <div className="mx-auto flex max-w-6xl items-center gap-2.5 sm:gap-3">
+                    {/* Back */}
                     <button
                         type="button"
                         onClick={handleBack}
                         aria-label={t("sp.goBack")}
-                        className="group inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-orange-200 bg-white pl-3 pr-4 text-sm font-bold text-orange-700 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 active:scale-95"
+                        className="group inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 bg-white ps-1.5 pe-4 text-sm font-semibold text-zinc-800 shadow-sm outline-none transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95"
                     >
                         <span
                             aria-hidden="true"
-                            className="text-lg leading-none transition-transform duration-200 group-hover:-translate-x-0.5"
+                            className="flex size-8 items-center justify-center rounded-full bg-orange-100 text-orange-700 transition group-hover:bg-orange-200"
                         >
-                            ←
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={2.2}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="size-4 transition-transform duration-200 ltr:group-hover:-translate-x-0.5 rtl:rotate-180"
+                            >
+                                <path d="m15 18-6-6 6-6" />
+                            </svg>
                         </span>
                         <span>{t("sp.back")}</span>
                     </button>
 
-                    <div className="min-w-0 flex-1">
+                    {/* Desktop: title + counts (on mobile the page title below already shows them) */}
+                    <div className="hidden min-w-0 flex-1 sm:block">
                         <p className="truncate text-sm font-bold text-zinc-900">
                             {t("nav.saved")}
                         </p>
@@ -532,23 +531,51 @@ export default function SavedPlansPage() {
                         </p>
                     </div>
 
-                    <a
-                        href="/shopping-list"
-                        aria-label={t("nav.shopping")}
-                        className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-green-200 bg-white px-3.5 text-sm font-bold text-green-700 shadow-sm transition hover:bg-green-50 active:scale-95 sm:px-4"
-                    >
-                        <span aria-hidden="true">🛒</span>
-                        <span className="hidden sm:inline">{t("nav.shopping")}</span>
-                    </a>
+                    <div className="ms-auto flex shrink-0 items-center gap-2 sm:gap-3">
+                        {/* Shopping list */}
+                        <a
+                            href="/shopping-list"
+                            aria-label={t("nav.shopping")}
+                            title={t("nav.shopping")}
+                            className="inline-flex size-11 items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white text-sm font-semibold text-zinc-800 shadow-sm outline-none transition hover:border-green-300 hover:bg-green-50 hover:text-green-700 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 sm:w-auto sm:px-4"
+                        >
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={1.8}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="size-5 text-green-600"
+                                aria-hidden="true"
+                            >
+                                <circle cx="9" cy="20" r="1.5" />
+                                <circle cx="18" cy="20" r="1.5" />
+                                <path d="M2.5 3.5h3l2.2 11h10.6l2-8H6.3" />
+                            </svg>
+                            <span className="hidden sm:inline">{t("nav.shopping")}</span>
+                        </a>
 
-                    <a
-                        href="/planner"
-                        aria-label={t("sp.newAria")}
-                        className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-orange-600 px-4 text-sm font-bold text-white shadow-sm shadow-orange-200 transition hover:bg-orange-700 active:scale-95"
-                    >
-                        <span aria-hidden="true">＋</span>
-                        <span>{t("sp.newPlan")}</span>
-                    </a>
+                        {/* New plan */}
+                        <a
+                            href="/planner"
+                            aria-label={t("sp.newAria")}
+                            className="inline-flex h-11 items-center gap-1.5 rounded-full bg-orange-600 ps-3.5 pe-4 text-sm font-semibold text-white shadow-md shadow-orange-200 outline-none transition hover:bg-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95"
+                        >
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={2.4}
+                                strokeLinecap="round"
+                                className="size-4"
+                                aria-hidden="true"
+                            >
+                                <path d="M12 5v14M5 12h14" />
+                            </svg>
+                            <span>{t("sp.newPlan")}</span>
+                        </a>
+                    </div>
                 </div>
             </header>
 
@@ -817,14 +844,7 @@ export default function SavedPlansPage() {
                                             <p className="mt-3 text-xs text-zinc-500">
                                                 {[
                                                     plan.foodType,
-                                                    plan.budget
-                                                        ? Number.isFinite(Number(plan.budget))
-                                                            ? formatAmount(
-                                                                Number(plan.budget),
-                                                                savedPlanCurrency(plan.mealPlan)
-                                                            )
-                                                            : plan.budget
-                                                        : null,
+                                                    plan.budget ? `Rs. ${plan.budget}` : null,
                                                     plan.mealType,
                                                     plan.diet,
                                                     plan.servings ? `${plan.servings} people` : null,

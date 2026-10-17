@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
@@ -9,6 +16,39 @@ import type { TranslationKey } from "@/lib/i18n/translations";
 const MAX_LENGTH = 500;
 const MIN_LENGTH = 10;
 const LAST_SENT_KEY = "localplate_feedback_last";
+const POSITION_KEY = "localplate_feedback_position_v2";
+const EDGE = 8;
+const DRAG_THRESHOLD = 6;
+const KEY_STEP = 16;
+const EDGE_SCROLL = 56;
+const SCROLL_STEP = 14;
+const BUTTON_HEIGHT = 44;
+
+type Position = { x: number; y: number };
+
+// Keeps the button fully inside the page (coordinates are page-based).
+function clampPosition(
+  position: Position,
+  width: number,
+  height: number
+): Position {
+  const page = document.documentElement;
+  const maxX = Math.max(EDGE, page.scrollWidth - width - EDGE);
+  const maxY = Math.max(EDGE, page.scrollHeight - height - EDGE);
+
+  return {
+    x: Math.min(Math.max(position.x, EDGE), maxX),
+    y: Math.min(Math.max(position.y, EDGE), maxY),
+  };
+}
+
+function savePosition(position: Position) {
+  try {
+    localStorage.setItem(POSITION_KEY, JSON.stringify(position));
+  } catch {
+    // Ignore storage problems.
+  }
+}
 
 type FeedbackType = "feature" | "problem" | "other";
 
@@ -34,6 +74,19 @@ export default function FeedbackWidget() {
   const [userEmail, setUserEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [notice, setNotice] = useState("");
+
+  // null = default corner. Once moved, the button keeps its own spot.
+  const [position, setPosition] = useState<Position | null>(null);
+
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
+  const movedRef = useRef(false);
 
   // Know who is writing (optional) when the panel opens.
   useEffect(() => {
@@ -64,6 +117,70 @@ export default function FeedbackWidget() {
     };
   }, [open]);
 
+  // The button can be anywhere on the page, so bring the panel into view.
+  useEffect(() => {
+    if (!open) return;
+
+    const frame = requestAnimationFrame(() => {
+      panelRef.current?.scrollIntoView({
+        block: "nearest",
+        behavior: "smooth",
+      });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
+
+  // Restore the position the visitor chose, and keep it on the page.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      try {
+        const saved = JSON.parse(
+          localStorage.getItem(POSITION_KEY) || "null"
+        );
+
+        if (
+          saved &&
+          typeof saved.x === "number" &&
+          typeof saved.y === "number"
+        ) {
+          const button = buttonRef.current;
+
+          setPosition(
+            clampPosition(
+              saved,
+              button?.offsetWidth ?? BUTTON_HEIGHT,
+              button?.offsetHeight ?? BUTTON_HEIGHT
+            )
+          );
+        }
+      } catch {
+        // Ignore storage problems.
+      }
+    });
+
+    const onResize = () => {
+      const button = buttonRef.current;
+
+      setPosition((current) =>
+        current
+          ? clampPosition(
+              current,
+              button?.offsetWidth ?? BUTTON_HEIGHT,
+              button?.offsetHeight ?? BUTTON_HEIGHT
+            )
+          : current
+      );
+    };
+
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);
+
   // Lets other pages (e.g. Contact) open this panel.
   useEffect(() => {
     const openPanel = () => setOpen(true);
@@ -83,6 +200,133 @@ export default function FeedbackWidget() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  function onPointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (event.button !== 0) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+
+    dragRef.current = {
+      startX: event.clientX + window.scrollX,
+      startY: event.clientY + window.scrollY,
+      originX: rect.left + window.scrollX,
+      originY: rect.top + window.scrollY,
+    };
+
+    movedRef.current = false;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function onPointerMove(event: ReactPointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current;
+
+    if (!drag) return;
+
+    const dx = event.clientX + window.scrollX - drag.startX;
+    const dy = event.clientY + window.scrollY - drag.startY;
+
+    if (!movedRef.current && Math.hypot(dx, dy) < DRAG_THRESHOLD) {
+      return;
+    }
+
+    movedRef.current = true;
+
+    // Near the top or bottom of the screen, scroll the page along.
+    if (event.clientY > window.innerHeight - EDGE_SCROLL) {
+      window.scrollBy(0, SCROLL_STEP);
+    } else if (event.clientY < EDGE_SCROLL) {
+      window.scrollBy(0, -SCROLL_STEP);
+    }
+
+    setPosition(
+      clampPosition(
+        { x: drag.originX + dx, y: drag.originY + dy },
+        event.currentTarget.offsetWidth,
+        event.currentTarget.offsetHeight
+      )
+    );
+  }
+
+  function onPointerUp(event: ReactPointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current;
+
+    dragRef.current = null;
+
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // Pointer was already released.
+    }
+
+    if (drag && movedRef.current) {
+      const dx = event.clientX + window.scrollX - drag.startX;
+      const dy = event.clientY + window.scrollY - drag.startY;
+
+      savePosition(
+        clampPosition(
+          { x: drag.originX + dx, y: drag.originY + dy },
+          event.currentTarget.offsetWidth,
+          event.currentTarget.offsetHeight
+        )
+      );
+    }
+  }
+
+  // Keyboard users: Shift + arrow keys move the button.
+  function onButtonKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    if (!event.shiftKey) return;
+
+    const steps: Record<string, [number, number]> = {
+      ArrowLeft: [-KEY_STEP, 0],
+      ArrowRight: [KEY_STEP, 0],
+      ArrowUp: [0, -KEY_STEP],
+      ArrowDown: [0, KEY_STEP],
+    };
+
+    const step = steps[event.key];
+
+    if (!step) return;
+
+    event.preventDefault();
+
+    const rect = event.currentTarget.getBoundingClientRect();
+
+    const next = clampPosition(
+      {
+        x: (position?.x ?? rect.left + window.scrollX) + step[0],
+        y: (position?.y ?? rect.top + window.scrollY) + step[1],
+      },
+      rect.width,
+      rect.height
+    );
+
+    setPosition(next);
+    savePosition(next);
+  }
+
+  // Opens the panel next to wherever the button currently is.
+  function panelPlacement(): React.CSSProperties | undefined {
+    if (!position) return undefined;
+
+    const page = document.documentElement;
+    const panelWidth = Math.min(352, window.innerWidth - 32);
+
+    const left = Math.max(
+      16,
+      Math.min(position.x, page.scrollWidth - panelWidth - 16)
+    );
+
+    // Button in the lower half of the screen: open the panel above it.
+    if (position.y - window.scrollY > window.innerHeight / 2) {
+      return {
+        left,
+        top: position.y - EDGE,
+        transform: "translateY(-100%)",
+      };
+    }
+
+    return { left, top: position.y + BUTTON_HEIGHT + EDGE };
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -147,12 +391,48 @@ export default function FeedbackWidget() {
   return (
     <>
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          // A drag must not also open the panel.
+          if (movedRef.current) {
+            movedRef.current = false;
+            return;
+          }
+
+          setOpen((value) => !value);
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onKeyDown={onButtonKeyDown}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="fixed bottom-4 end-4 z-40 inline-flex h-11 items-center gap-2 rounded-full bg-zinc-900 px-4 text-sm font-semibold text-white shadow-lg outline-none transition hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95"
+        style={
+          position
+            ? { left: position.x, top: position.y }
+            : undefined
+        }
+        className={`absolute z-40 inline-flex h-11 cursor-grab touch-none select-none items-center gap-2 rounded-full bg-zinc-900 px-4 text-sm font-semibold text-white shadow-lg outline-none transition hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 active:cursor-grabbing ${
+          position ? "" : "top-[calc(100svh-3.75rem)] end-4"
+        }`}
       >
+        {/* Grip: shows that the button can be dragged */}
+        <svg
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="-ms-1 size-3 opacity-50"
+          aria-hidden="true"
+        >
+          <circle cx="9" cy="6" r="1.6" />
+          <circle cx="15" cy="6" r="1.6" />
+          <circle cx="9" cy="12" r="1.6" />
+          <circle cx="15" cy="12" r="1.6" />
+          <circle cx="9" cy="18" r="1.6" />
+          <circle cx="15" cy="18" r="1.6" />
+        </svg>
+
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -171,9 +451,13 @@ export default function FeedbackWidget() {
 
       {open && (
         <div
+          ref={panelRef}
           role="dialog"
           aria-labelledby="feedback-title"
-          className="fixed bottom-20 end-4 z-40 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-zinc-200 bg-white p-4 text-zinc-900 shadow-xl"
+          style={panelPlacement()}
+          className={`absolute z-40 max-h-[calc(100vh-6rem)] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 text-zinc-900 shadow-xl ${
+            position ? "" : "top-[calc(100svh-4.25rem)] end-4 -translate-y-full"
+          }`}
         >
           <div className="flex items-center justify-between gap-2">
             <h2 id="feedback-title" className="font-semibold">
