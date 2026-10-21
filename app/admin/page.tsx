@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import FeedbackSection from "./FeedbackSection";
+import CookSection from "./CookSection";
 
 type FeatureFlag = {
   feature_name: string;
@@ -3255,6 +3256,9 @@ export default function AdminPage() {
 
         </section>
 
+        {/* WHAT CAN I COOK */}
+        <CookSection />
+
         {/* FEEDBACK */}
         <FeedbackSection />
 
@@ -3651,6 +3655,7 @@ type NavIconName =
   | "cart"
   | "clock"
   | "message"
+  | "chef"
   | "star";
 
 function NavIcon({
@@ -3705,6 +3710,12 @@ function NavIcon({
       </>
     ),
     message: <path d="M4 5h16v11H9l-5 4V5z" />,
+    chef: (
+      <>
+        <path d="M7 14.5a4 4 0 0 1 .6-7.9 4.5 4.5 0 0 1 8.8 0A4 4 0 0 1 17 14.5" />
+        <path d="M7 14.5V20h10v-5.5M7 17.5h10" />
+      </>
+    ),
     star: (
       <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" />
     ),
@@ -3740,6 +3751,7 @@ const navSections: {
     { id: "plans", label: "Saved Plans", icon: "clipboard" },
     { id: "lists", label: "Shopping Lists", icon: "cart" },
     { id: "activity", label: "Activity Log", icon: "clock" },
+    { id: "cook", label: "What Can I Cook", icon: "chef" },
     { id: "feedback", label: "Feedback", icon: "message" },
   ];
 
