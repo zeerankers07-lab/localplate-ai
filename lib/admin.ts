@@ -10,11 +10,15 @@ function configuredAdminEmails() {
   );
 }
 
+function isAdminRole(role: unknown) {
+  return typeof role === "string" && role.trim().toLowerCase() === "admin";
+}
+
 /**
  * Returns the signed-in user only if they are an admin.
  *
- * This uses the SAME rules as proxy.ts (the /admin page guard), so anyone
- * who can open the admin panel can also use the admin APIs:
+ * Uses the SAME rules as proxy.ts (the /admin page guard), so anyone who can
+ * open the admin panel can also use the admin APIs:
  *   1. email listed in ADMIN_EMAILS
  *   2. Supabase Auth app_metadata.role === "admin"
  *   3. profiles.role === "admin"
@@ -31,10 +35,27 @@ export async function getAdminUser() {
 
   if (email && configuredAdminEmails().has(email)) return user;
 
-  if (user.app_metadata?.role === "admin") return user;
+  if (isAdminRole(user.app_metadata?.role)) return user;
 
+  // 3a. Read the role with the user's own session (exactly what proxy.ts does).
   try {
-    // Service-role read, so it works even if profile RLS hides the role.
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Admin check (user session) failed:", error.message);
+    } else if (isAdminRole(profile?.role)) {
+      return user;
+    }
+  } catch (error) {
+    console.error("Admin check (user session) failed:", error);
+  }
+
+  // 3b. Fallback: read the role with the service-role key (ignores RLS).
+  try {
     const admin = createAdminClient();
     const { data: profile, error } = await admin
       .from("profiles")
@@ -43,13 +64,12 @@ export async function getAdminUser() {
       .maybeSingle();
 
     if (error) {
-      console.error("Could not check admin profile role:", error.message);
-      return null;
+      console.error("Admin check (service role) failed:", error.message);
+    } else if (isAdminRole(profile?.role)) {
+      return user;
     }
-
-    if (profile?.role === "admin") return user;
   } catch (error) {
-    console.error("Could not check admin profile role:", error);
+    console.error("Admin check (service role) failed:", error);
   }
 
   return null;
