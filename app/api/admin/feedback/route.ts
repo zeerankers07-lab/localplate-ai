@@ -11,6 +11,15 @@ const UUID =
 
 type Status = (typeof STATUSES)[number];
 
+// Short error text for the admin (these routes are admin-only).
+function errorDetail(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return "Unknown error";
+}
+
 function isStatus(value: unknown): value is Status {
   return STATUSES.includes(value as Status);
 }
@@ -100,7 +109,7 @@ export async function GET(req: Request) {
     console.error("Admin feedback list error:", error);
 
     return NextResponse.json(
-      { error: "Could not load feedback." },
+      { error: `Could not load feedback. (${errorDetail(error)})` },
       { status: 500 }
     );
   }

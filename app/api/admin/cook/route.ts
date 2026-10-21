@@ -15,6 +15,15 @@ function cleanSearch(value: string) {
   return value.replace(/[%,()*\\]/g, " ").trim().slice(0, 80);
 }
 
+// Short error text for the admin (these routes are admin-only).
+function errorDetail(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return "Unknown error";
+}
+
 type ProfileRow = {
   id: string;
   email: string | null;
@@ -141,7 +150,9 @@ export async function GET(req: Request) {
     console.error("Admin cook data error:", error);
 
     return NextResponse.json(
-      { error: "Could not load What Can I Cook data." },
+      {
+        error: `Could not load What Can I Cook data. (${errorDetail(error)})`,
+      },
       { status: 500 }
     );
   }
