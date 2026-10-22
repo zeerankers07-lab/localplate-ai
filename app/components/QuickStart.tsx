@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type KeyboardEvent } from "react";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/translations";
+import { pantryEmoji } from "@/lib/pantry";
 
 const BUDGETS = ["500", "1000", "2000"];
 const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner"];
@@ -19,8 +20,10 @@ const COOK_INGREDIENTS = [
   "Tomatoes",
   "Daal",
   "Flour",
-  "Yogurt",
+  "Garlic",
   "Spinach",
+  "Yogurt",
+  "Bread",
 ];
 
 // The /cook page restores its ingredients from this key.
@@ -257,33 +260,44 @@ export default function QuickStart() {
           aria-labelledby="quickstart-tab-cook"
           className="mt-6"
         >
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            {t("qs.ingredients")}
+          <p className="text-base font-semibold text-zinc-900">
+            {t("qs.cookIntro")}
           </p>
 
-          <div className="mt-2.5 flex flex-wrap gap-2">
+          <ul className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
             {cookOptions.map((item) => {
               const active = selected.some(
                 (value) => value.toLowerCase() === item.toLowerCase()
               );
 
               return (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => toggleIngredient(item)}
-                  aria-pressed={active}
-                  className={`${chipBase} ${active ? chipOn : chipOff}`}
-                >
-                  <Icon
-                    name={active ? "check" : "plus"}
-                    className="size-3.5"
-                  />
-                  {label("ing", item)}
-                </button>
+                <li key={item}>
+                  <button
+                    type="button"
+                    onClick={() => toggleIngredient(item)}
+                    aria-pressed={active}
+                    className={`relative flex h-full min-h-[84px] w-full touch-manipulation flex-col items-center justify-center gap-1 rounded-2xl border-2 px-1 py-3 text-center outline-none transition duration-200 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 ${
+                      active
+                        ? "border-orange-500 bg-orange-50 shadow-md shadow-orange-500/20"
+                        : "border-zinc-200 bg-zinc-50 hover:border-orange-300 hover:bg-white md:hover:-translate-y-0.5"
+                    }`}
+                  >
+                    {active && (
+                      <span className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow">
+                        <Icon name="check" className="size-3" />
+                      </span>
+                    )}
+                    <span className="text-3xl leading-none" aria-hidden="true">
+                      {pantryEmoji(item)}
+                    </span>
+                    <span className="text-xs font-medium text-zinc-800 sm:text-[13px]">
+                      {label("ing", item)}
+                    </span>
+                  </button>
+                </li>
               );
             })}
-          </div>
+          </ul>
 
           <div className="relative mt-4">
             <label htmlFor="quickstart-custom" className="sr-only">

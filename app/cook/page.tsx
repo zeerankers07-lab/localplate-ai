@@ -9,12 +9,17 @@ import {
   type KeyboardEvent,
 } from "react";
 import Link from "next/link";
+import { Fraunces } from "next/font/google";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n, type CurrencyCode } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/translations";
+import { PANTRY, pantryEmoji } from "@/lib/pantry";
 import { MARKETS, priceAccuracyRules, priceRule } from "@/lib/currency";
+
+// Headline typeface for the hero (soft serif, feels like a recipe book).
+const display = Fraunces({ subsets: ["latin"], display: "swap" });
 
 // =========================
 // Constants
@@ -760,6 +765,16 @@ export default function CookPage() {
   const toastTimer = useRef<number | null>(null);
   const resultsRef = useRef<HTMLElement>(null);
 
+  // On phones the message sits far from the sticky button, so bring it into view.
+  useEffect(() => {
+    if (!error && !authRequired) return;
+    if (!window.matchMedia("(max-width: 1023px)").matches) return;
+
+    document
+      .getElementById("cook-messages")
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [error, authRequired]);
+
   const currencyInfo = CURRENCIES[currency];
   const resultSymbol = CURRENCIES[resultCurrency].symbol;
 
@@ -1015,9 +1030,11 @@ export default function CookPage() {
   const suggestions = useMemo(() => {
     const term = draft.trim().toLowerCase();
     const taken = new Set(ingredients.map((item) => item.toLowerCase()));
-    const pool = term
-      ? SUGGESTIONS.filter((item) => item.toLowerCase().includes(term))
-      : POPULAR;
+    if (!term) return [];
+
+    const pool = SUGGESTIONS.filter((item) =>
+      item.toLowerCase().includes(term)
+    );
 
     return pool.filter((item) => !taken.has(item.toLowerCase())).slice(0, 8);
   }, [draft, ingredients]);
@@ -1025,6 +1042,12 @@ export default function CookPage() {
   // =========================
   // Ingredients
   // =========================
+
+  // Typed ingredients that have no tile in the hero.
+  const customIngredients = ingredients.filter(
+    (item) =>
+      !PANTRY.some((tile) => tile.name.toLowerCase() === item.toLowerCase())
+  );
 
   function addIngredients(raw: string) {
     const items = raw
@@ -1050,6 +1073,15 @@ export default function CookPage() {
     setResult("");
     setError("");
     setAuthRequired(false);
+  }
+
+  function togglePantry(name: string) {
+    const existing = ingredients.find(
+      (item) => item.toLowerCase() === name.toLowerCase()
+    );
+
+    if (existing) removeIngredient(existing);
+    else addIngredients(name);
   }
 
   function toggleAllergy(item: string) {
@@ -1586,23 +1618,115 @@ Keep the response concise. Do not add any text after the last meal.
   // =========================
 
   return (
-    <main className="min-h-screen bg-zinc-50 text-zinc-900">
-      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-          {t("cook.title")}
-        </h1>
+    <main className="min-h-screen bg-stone-50 text-stone-900">
+      {/* Hero */}
+      <header className="relative overflow-hidden bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 text-white">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-amber-300/30 blur-3xl"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-32 -left-20 size-96 rounded-full bg-red-900/30 blur-3xl"
+        />
 
-        <div className="mt-6 grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-          {/* Inputs */}
-          <form
-            onSubmit={findMeals}
-            className="space-y-4 rounded-xl border border-zinc-200 bg-white p-5 lg:sticky lg:top-4"
-          >
-            <div>
-              <label htmlFor="ingredient-input" className={labelClass}>
-                {t("cook.ingredients")}
-              </label>
+        <div className="relative mx-auto grid max-w-6xl gap-6 px-4 pb-8 pt-8 sm:gap-8 sm:px-6 sm:pb-12 sm:pt-10 lg:grid-cols-[1fr_minmax(0,1.05fr)] lg:items-center lg:gap-12 lg:pb-16 lg:pt-14">
+          <div>
+            <h1
+              className={`${display.className} text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl`}
+            >
+              {t("cook.title")}
+            </h1>
 
+            <p className="mt-3 max-w-md text-base leading-relaxed text-orange-50 sm:mt-4 sm:text-lg">
+              {t("cook.tagline")}
+            </p>
+
+            <ul className="mt-6 hidden space-y-3 text-sm font-medium sm:block sm:text-base">
+              {(["cook.f1", "cook.f2", "cook.f3"] as const).map((key) => (
+                <li key={key} className="flex items-center gap-3">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white text-orange-600">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="size-3.5"
+                      aria-hidden="true"
+                    >
+                      <path d="m5 12.5 4.5 4.5L19 7.5" />
+                    </svg>
+                  </span>
+                  {t(key)}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="rounded-3xl bg-white p-4 text-stone-900 shadow-2xl shadow-red-950/30 sm:p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-base font-semibold">{t("cook.pantryTitle")}</h2>
+
+              {ingredients.length > 0 && (
+                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                  {t("cook.pantryCount", { n: ingredients.length })}
+                </span>
+              )}
+            </div>
+
+            <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {PANTRY.map((item, index) => {
+                const selected = ingredients.some(
+                  (value) => value.toLowerCase() === item.name.toLowerCase()
+                );
+
+                return (
+                  <li
+                    key={item.name}
+                    className="cook-tile-in"
+                    style={{ animationDelay: `${index * 45}ms` }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => togglePantry(item.name)}
+                      aria-pressed={selected}
+                      className={`relative flex h-full min-h-[84px] w-full touch-manipulation flex-col items-center justify-center gap-1 rounded-2xl border-2 px-1 py-3 text-center outline-none transition duration-200 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 ${
+                        selected
+                          ? "border-orange-500 bg-orange-50 shadow-md shadow-orange-500/20"
+                          : "border-stone-200 bg-stone-50 hover:border-orange-300 hover:bg-white md:hover:-translate-y-0.5"
+                      }`}
+                    >
+                      {selected && (
+                        <span className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow">
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={3.5}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="size-3"
+                            aria-hidden="true"
+                          >
+                            <path d="m5 12.5 4.5 4.5L19 7.5" />
+                          </svg>
+                        </span>
+                      )}
+                      <span className="text-3xl leading-none" aria-hidden="true">
+                        {item.emoji}
+                      </span>
+                      <span className="text-xs font-medium sm:text-[13px]">
+                        {label("ing", item.name)}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <div className="mt-4">
               <input
                 id="ingredient-input"
                 type="text"
@@ -1617,30 +1741,10 @@ Keep the response concise. Do not add any text after the last meal.
                 onBlur={() => addIngredients(draft)}
                 maxLength={60}
                 placeholder={t("cook.ingredientPlaceholder")}
+                aria-label={t("cook.ingredients")}
                 autoComplete="off"
-                className={fieldClass}
+                className="h-12 w-full rounded-xl border border-stone-200 bg-stone-50 px-4 text-base outline-none transition placeholder:text-stone-500 focus:border-orange-500 focus:bg-white focus:ring-4 focus:ring-orange-100 sm:text-sm"
               />
-
-              {ingredients.length > 0 && (
-                <ul className="mt-2.5 flex flex-wrap gap-1.5">
-                  {ingredients.map((item) => (
-                    <li
-                      key={item}
-                      className="inline-flex items-center gap-0.5 rounded-md bg-zinc-100 py-1 pl-2.5 pr-1 text-sm"
-                    >
-                      {label("ing", item)}
-                      <button
-                        type="button"
-                        onClick={() => removeIngredient(item)}
-                        aria-label={t("cook.removeItem", { x: label("ing", item) })}
-                        className="flex size-5 items-center justify-center rounded text-zinc-500 outline-none hover:bg-zinc-200 hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-orange-500"
-                      >
-                        <Icon name="x" className="size-3" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
 
               {suggestions.length > 0 && (
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -1650,15 +1754,49 @@ Keep the response concise. Do not add any text after the last meal.
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => addIngredients(item)}
-                      className="rounded-md border border-dashed border-zinc-300 px-2 py-1 text-xs text-zinc-600 outline-none transition hover:border-orange-400 hover:text-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500"
+                      className="rounded-lg border border-dashed border-stone-300 px-2.5 py-1 text-xs text-stone-600 outline-none transition hover:border-orange-400 hover:text-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500"
                     >
                       + {label("ing", item)}
                     </button>
                   ))}
                 </div>
               )}
-            </div>
 
+              {customIngredients.length > 0 && (
+                <ul className="mt-3 flex flex-wrap gap-2">
+                  {customIngredients.map((item) => (
+                    <li
+                      key={item}
+                      className="inline-flex items-center gap-2 rounded-full border-2 border-orange-500 bg-orange-50 py-1 pl-3 pr-1 text-sm font-semibold text-orange-950 shadow-sm shadow-orange-500/10"
+                    >
+                      <span aria-hidden="true" className="text-lg leading-none">
+                        {pantryEmoji(item)}
+                      </span>
+                      {label("ing", item)}
+                      <button
+                        type="button"
+                        onClick={() => removeIngredient(item)}
+                        aria-label={t("cook.removeItem", { x: label("ing", item) })}
+                        className="flex size-7 items-center justify-center rounded-full bg-orange-200/70 text-orange-900 outline-none transition hover:bg-orange-300 focus-visible:ring-2 focus-visible:ring-orange-500"
+                      >
+                        <Icon name="x" className="size-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-6xl px-4 pb-28 pt-8 sm:px-6 sm:pt-10 lg:pb-10">
+        <div className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+          {/* Inputs */}
+          <form
+            onSubmit={findMeals}
+            className="space-y-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm lg:sticky lg:top-4"
+          >
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="cuisine" className={labelClass}>
@@ -1741,7 +1879,7 @@ Keep the response concise. Do not add any text after the last meal.
                   onChange={(event) =>
                     changeCurrency(event.target.value as CurrencyCode)
                   }
-                  className={`${fieldClass} w-24 shrink-0`}
+                  className={`${fieldClass.replace("w-full", "")} w-28 shrink-0`}
                 >
                   {(Object.keys(CURRENCIES) as CurrencyCode[]).map((code) => (
                     <option key={code}>{code}</option>
@@ -1884,7 +2022,7 @@ Keep the response concise. Do not add any text after the last meal.
               <button
                 type="submit"
                 disabled={loading}
-                className="h-11 flex-1 rounded-lg bg-orange-600 px-4 text-sm font-semibold text-white outline-none transition hover:bg-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                className="hidden h-12 flex-1 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 lg:block px-4 text-base font-semibold text-white shadow-lg shadow-orange-600/25 outline-none transition hover:from-orange-600 hover:to-red-700 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? t("cook.finding") : t("cook.find")}
               </button>
@@ -1900,6 +2038,7 @@ Keep the response concise. Do not add any text after the last meal.
               )}
             </div>
 
+            <div id="cook-messages" className="space-y-4 empty:hidden">
             {error && (
               <p
                 role="alert"
@@ -1922,6 +2061,7 @@ Keep the response concise. Do not add any text after the last meal.
               </Link>
             </div>
           )}
+            </div>
           </form>
 
           {/* Output */}
@@ -2010,9 +2150,47 @@ Keep the response concise. Do not add any text after the last meal.
                     <Markdown text={result} />
                   </div>
                 ) : (
-                  <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500">
-                    {t("cook.empty")}
-                  </p>
+                  <div className="rounded-2xl border border-orange-100 bg-white p-6 shadow-sm sm:p-8">
+                    <h2
+                      className={`${display.className} text-2xl font-semibold tracking-tight sm:text-3xl`}
+                    >
+                      {t("cook.stepsTitle")}
+                    </h2>
+
+                    <ol className="mt-6 grid gap-4 sm:grid-cols-3">
+                      {(
+                        [
+                          ["cook.step1", "cook.step1d", "🧺"],
+                          ["cook.step2", "cook.step2d", "⏱️"],
+                          ["cook.step3", "cook.step3d", "🍽️"],
+                        ] as const
+                      ).map(([title, text, emoji], index) => (
+                        <li
+                          key={title}
+                          className="rounded-2xl bg-orange-50 p-4"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="flex size-8 items-center justify-center rounded-full bg-orange-600 text-sm font-bold text-white">
+                              {index + 1}
+                            </span>
+                            <span className="text-2xl" aria-hidden="true">
+                              {emoji}
+                            </span>
+                          </div>
+                          <h3 className="mt-4 text-sm font-semibold">
+                            {t(title)}
+                          </h3>
+                          <p className="mt-1 text-sm leading-relaxed text-stone-600">
+                            {t(text)}
+                          </p>
+                        </li>
+                      ))}
+                    </ol>
+
+                    <p className="mt-6 text-sm text-stone-500">
+                      {t("cook.empty")}
+                    </p>
+                  </div>
                 )}
               </div>
             )}
@@ -2287,6 +2465,30 @@ Keep the response concise. Do not add any text after the last meal.
           }`}
         >
           {toast.message}
+        </div>
+      )}
+
+      {/* Phones: one big button that stays in reach. Leaves room for the Feedback button. */}
+      {ingredients.length > 0 && (
+        <div
+          className="pointer-events-none fixed inset-x-0 bottom-0 z-30 lg:hidden"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        >
+          <div className="pointer-events-auto mb-4 me-40 ms-4">
+            <button
+              type="button"
+              onClick={() => findMeals()}
+              disabled={loading}
+              className="flex h-12 w-full touch-manipulation items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 px-4 text-base font-semibold text-white shadow-xl shadow-orange-900/30 outline-none transition active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 disabled:opacity-60"
+            >
+              {loading ? t("cook.finding") : t("cook.find")}
+              {!loading && (
+                <span className="rounded-full bg-white/25 px-2 py-0.5 text-xs">
+                  {ingredients.length}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       )}
     </main>

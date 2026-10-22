@@ -5,6 +5,7 @@ import QuickStart from "./components/QuickStart";
 import { useI18n } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/translations";
 import { RECIPE_PAGES } from "@/lib/seoPages";
+import { pantryEmoji } from "@/lib/pantry";
 
 const ICON_PATHS = {
   calendar: "M4 6h16v14H4zM4 10h16M8 3v4M16 3v4",
@@ -69,7 +70,7 @@ const HIGHLIGHTS: TranslationKey[] = ["home.hl1", "home.hl2", "home.hl3"];
 const STEPS: TranslationKey[] = ["home.step1", "home.step2", "home.step3"];
 
 export default function Home() {
-  const { t } = useI18n();
+  const { t, label } = useI18n();
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#fff7ed_0%,#ffffff_45%,#fafafa_100%)] text-zinc-900">
@@ -117,6 +118,77 @@ export default function Home() {
             </li>
           ))}
         </ul>
+
+        <section className="mt-12" aria-labelledby="home-get">
+          <h2 id="home-get" className="text-lg font-semibold">
+            {t("home.getTitle")}
+          </h2>
+
+          <div className="mt-4 overflow-hidden rounded-2xl border border-orange-100 bg-white shadow-[0_20px_50px_-30px_rgba(234,88,12,0.45)]">
+            <div className="flex items-start justify-between gap-3 border-b border-orange-100 bg-orange-50/70 px-5 py-4">
+              <div>
+                <p className="text-xs font-medium text-orange-700">
+                  {t("home.sampleBadge")}
+                </p>
+                <h3 className="mt-0.5 text-xl font-semibold">
+                  {t("home.sampleTitle")}
+                </h3>
+              </div>
+              <span className="text-4xl leading-none" aria-hidden="true">
+                🍛
+              </span>
+            </div>
+
+            <div className="space-y-4 p-5">
+              <ul className="flex flex-wrap gap-2 text-sm text-zinc-700">
+                {(
+                  [
+                    ["⏱️", "home.sampleTime"],
+                    ["💰", "home.sampleCost"],
+                    ["👥", "home.sampleServes"],
+                    ["🔥", "home.sampleKcal"],
+                  ] as const
+                ).map(([emoji, key]) => (
+                  <li
+                    key={key}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1.5"
+                  >
+                    <span aria-hidden="true">{emoji}</span>
+                    {t(key)}
+                  </li>
+                ))}
+              </ul>
+
+              <div>
+                <p className="text-xs font-medium text-zinc-500">
+                  {t("home.sampleMade")}
+                </p>
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {["Chicken", "Rice", "Onions"].map((item) => (
+                    <li
+                      key={item}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-sm font-medium text-orange-900"
+                    >
+                      <span aria-hidden="true">{pantryEmoji(item)}</span>
+                      {label("ing", item)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <p className="text-sm text-zinc-600">
+                <span className="font-semibold text-zinc-900">
+                  {t("home.sampleNeed")}:
+                </span>{" "}
+                {t("home.sampleNeedItems")}
+              </p>
+            </div>
+
+            <p className="border-t border-zinc-100 bg-zinc-50 px-5 py-3 text-xs text-zinc-500">
+              {t("home.sampleNote")}
+            </p>
+          </div>
+        </section>
 
         <ol className="mt-10 grid gap-3 sm:grid-cols-3">
           {STEPS.map((step, index) => (
