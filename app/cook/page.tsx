@@ -52,6 +52,17 @@ const DIETS = [
 ];
 const DIFFICULTIES = ["Any", "Easy", "Medium", "Hard"];
 const MEAL_TYPES = ["Any", "Breakfast", "Lunch", "Dinner", "Snack"];
+
+// Meal size = calories per serving. Presets only (no free number box) and the
+// lowest one stays at a normal meal size on purpose.
+const MEAL_SIZES = [
+  { id: "Any", label: "cook.sizeAny", range: null },
+  { id: "Light", label: "cook.sizeLight", range: [350, 450] },
+  { id: "Balanced", label: "cook.sizeBalanced", range: [450, 650] },
+  { id: "Hearty", label: "cook.sizeHearty", range: [650, 900] },
+] as const;
+
+type MealSize = (typeof MEAL_SIZES)[number]["id"];
 const ALLERGIES = [
   "Nuts",
   "Peanuts",
@@ -509,7 +520,6 @@ function RecipeCard({
     minutes ? t("unit.min", { n: minutes }) : "",
     level ? label("opt", level) : "",
     scaledCost ? `${symbol} ${scaledCost}` : "",
-    nutrition?.calories ? t("unit.kcal", { n: nutrition.calories }) : "",
   ].filter(Boolean);
 
   return (
@@ -525,9 +535,15 @@ function RecipeCard({
             <span className="block font-semibold leading-snug">
               {recipeTitle(meal.heading)}
             </span>
-            {meta.length > 0 && (
-              <span className="mt-1 block text-sm text-zinc-500">
+            {(meta.length > 0 || nutrition?.calories) && (
+              <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-zinc-500">
                 {meta.join(" · ")}
+                {nutrition?.calories ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-800">
+                    <span aria-hidden="true">🔥</span>≈{" "}
+                    {t("unit.kcal", { n: nutrition.calories })}
+                  </span>
+                ) : null}
               </span>
             )}
           </span>
@@ -726,6 +742,7 @@ export default function CookPage() {
   const [diet, setDiet] = useState("Normal");
   const [difficulty, setDifficulty] = useState("Any");
   const [mealType, setMealType] = useState("Any");
+  const [mealSize, setMealSize] = useState<MealSize>("Any");
   const [mode, setMode] = useState<Mode>("available");
   const { t, label, lang, currency, setCurrency } = useI18n();
   const storedPrefs = useRef<Record<string, unknown> | null>(null);
@@ -820,6 +837,9 @@ export default function CookPage() {
           if (MEAL_TYPES.includes(text(prefs.mealType))) {
             setMealType(text(prefs.mealType));
           }
+          if (MEAL_SIZES.some((item) => item.id === text(prefs.mealSize))) {
+            setMealSize(text(prefs.mealSize) as MealSize);
+          }
           if (MODES.some((item) => item.id === text(prefs.mode))) {
             setMode(text(prefs.mode) as Mode);
           }
@@ -867,6 +887,7 @@ export default function CookPage() {
           diet,
           difficulty,
           mealType,
+          mealSize,
           mode,
           currency,
           budget,
@@ -885,6 +906,7 @@ export default function CookPage() {
     diet,
     difficulty,
     mealType,
+    mealSize,
     mode,
     currency,
     budget,
@@ -1163,6 +1185,11 @@ Keep the total cost clearly within the budget and suitable for the number of peo
       `,
     };
 
+    const sizeRange = MEAL_SIZES.find((item) => item.id === mealSize)?.range;
+    const calorieInstruction = sizeRange
+      ? `Choose meals that are about ${sizeRange[0]} to ${sizeRange[1]} kcal per serving. Always write an honest estimate in the Nutrition line. If the ingredients cannot reach this range, suggest the closest meals instead of changing portions to fit a number. Never use judging words such as "guilt-free", "cheat", "bad" or "clean".`
+      : "No calorie target. Just write an honest estimate in the Nutrition line.";
+
     const prompt = `
 You are LocalPlate AI's "What Can I Cook?" assistant.
 
@@ -1202,6 +1229,9 @@ ${mealType}
 
 ALLERGIES (NEVER INCLUDE, NOT EVEN AS A SUBSTITUTION):
 ${allergies.length > 0 ? allergies.join(", ") : "None"}
+
+CALORIES PER SERVING:
+${calorieInstruction}
 
 MAXIMUM COOKING TIME:
 ${time} minutes
@@ -1898,6 +1928,46 @@ Keep the response concise. Do not add any text after the last meal.
                 />
               </div>
             </div>
+
+            <fieldset>
+              <legend className={labelClass}>{t("cook.size")}</legend>
+
+              <div role="radiogroup" className="mt-1 grid grid-cols-4 gap-1.5">
+                {MEAL_SIZES.map((item) => {
+                  const active = mealSize === item.id;
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setMealSize(item.id)}
+                      className={`h-10 touch-manipulation rounded-lg border px-1 text-[13px] font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-orange-500 ${
+                        active
+                          ? "border-orange-500 bg-orange-50 text-orange-900"
+                          : "border-stone-200 bg-white text-stone-700 hover:border-orange-300"
+                      }`}
+                    >
+                      {t(item.label)}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {(() => {
+                const range = MEAL_SIZES.find(
+                  (item) => item.id === mealSize
+                )?.range;
+
+                return range ? (
+                  <p className="mt-2 text-xs leading-relaxed text-stone-500">
+                    {t("cook.sizeRange", { a: range[0], b: range[1] })}{" "}
+                    {t("cook.sizeNote")}
+                  </p>
+                ) : null;
+              })()}
+            </fieldset>
 
             <details className="group rounded-lg border border-zinc-200">
               <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
